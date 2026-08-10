@@ -244,6 +244,42 @@ not ratify the framing — and framing errors dominate (§B.6 step 5).
 
 ---
 
+## 7g. Synthetic content is a data property with a charter rule behind it
+
+**Not in the plan or the book — a consequence of building before curation exists.**
+
+§C.6.4 is blunt that field curation is the binding constraint and that a defensible field is
+months of expert elicitation. None has happened, and retrieval over an empty field returns
+nothing, so Phase 1 could not be exercised at all.
+
+The decision was to run on content invented for the purpose while keeping the distinction
+impossible to lose. A note in a README would not do it: the thing that reads the field is
+code, and the risk is precisely that synthetic material is later taken for the real thing by
+someone who never read the note.
+
+So the identification is enforced at five layers: `field_sources.content_class` is NOT NULL
+with no default (migration `0010`); a CHECK and a trigger force synthetic material to
+Admiralty **F/6**, "cannot be judged" on both axes; `assertGraded` rejects inflated grades
+before anything is written; `contentClass` rides on every `GradedChunk` to the persona; and
+charter rule **CH012** caps any finding whose retrieval set contains synthetic material at
+`considered` and requires it to declare `syntheticBasis`, which `findings.synthetic_basis`
+carries to the output package.
+
+The cap is `considered` because §B.5.2 defines that term as "raised for awareness,
+insufficient basis" — exactly what a finding derived from invented material is. Synthetic
+content is not low-grade evidence; it is not evidence, which is why the grades cannot be
+raised rather than merely being low.
+
+CH012 tests the **retrieval set**, not the cited chunks. If synthetic material was in front of
+the persona there is no way to demonstrate it went unused, so the rule fails closed and the
+operational consequence is that a field must not mix classes. The shipped fixture keeps
+synthetic content under `.synthetic` field ids and a test asserts it.
+
+`packages/store/migrations/0010_content_class.sql`, `packages/core/src/charter/validate.ts`,
+`fixtures/fields/README.md`
+
+---
+
 ## 8. Scope inclusion is checked against a declared field, not inferred from prose
 
 **Plan (§M3 rule 6):** "Statement subject must fall within `scope_inclusions`."

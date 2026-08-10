@@ -25,6 +25,7 @@ const USAGE = `mae — MAE panel engine operator CLI
   seed:registry [--archetypes a,b]         Write the seed registry to Postgres
   ledger:verify --event <uuid>             Walk an event's hash chain
   charter:check [--corpus <path>]          Run the validator over a corpus of findings
+  fields:load --fixture <path>             Ingest a field fixture (states its own class)
 
 Both signatures are required before any persona runs (Appendix B §B.11).
 `;
@@ -131,6 +132,35 @@ switch (command) {
         process.exit(1);
       }
       throw error;
+    }
+
+    await closePool();
+    break;
+  }
+
+  case 'fields:load': {
+    const { DeterministicEmbedder, EMBEDDING_DIMENSIONS, loadFieldFixture, readFieldFixture } =
+      await import('@mae/fields');
+
+    const fixture = readFieldFixture(requireFlag('fixture'));
+    const result = await withClient(async (client) => {
+      await migrate(client);
+      return loadFieldFixture(client, fixture, new DeterministicEmbedder(EMBEDDING_DIMENSIONS));
+    });
+
+    console.log(
+      `Loaded ${result.sources} source(s), ${result.chunks} chunk(s) into ` +
+        `${result.fieldIds.length} field(s) as ${result.contentClass.toUpperCase()}.`,
+    );
+
+    if (result.contentClass === 'synthetic') {
+      console.log('');
+      console.log('  This content is SYNTHETIC. It was invented to exercise the engine and is');
+      console.log('  not curated expertise. Every source carries Admiralty F/6 ("cannot be');
+      console.log('  judged"), and charter rule CH012 caps any finding drawn from these fields');
+      console.log('  at "considered" and requires it to declare a synthetic basis.');
+      console.log('');
+      console.log(`  Fields: ${result.fieldIds.join(', ')}`);
     }
 
     await closePool();

@@ -29,7 +29,9 @@ correctness actually lives.
 | **M0** Scaffold, hash-chained ledger, schema, migrations | Built |
 | **M1** Registry, relevance predicates, scenario-driven convening | Built |
 | **M2** Field ingest with mandatory grading, situational retrieval | Built |
-| **M3** Charter validator, CH001–CH011 | Built |
+| **M3** Charter validator, CH001–CH012 | Built |
+| Phase 0 persistence: scenario, panel, event, and the two-signature approval gate | Built |
+| Synthetic field content, identified and enforced end to end | Built |
 | Chain composition bounds (§E.3) and effective sample size (§E.4) | Built |
 | **M4–M10** Persona runtime, phases, challenge, metrics, governance, UI | Not started |
 
@@ -97,7 +99,11 @@ unauditable.
 Stated plainly, because the code should not imply otherwise:
 
 - **Field curation is the dominant cost and is not a software problem.** The ingest pipeline
-  is a week. Curating a defensible metallurgy field is months of expert time.
+  is a week. Curating a defensible metallurgy field is months of expert time. Nothing has
+  been curated. `fixtures/fields/` holds content invented to exercise the engine, marked
+  `synthetic` in the schema, forced to Admiralty F/6, and capped by charter rule CH012 — see
+  `fixtures/fields/README.md`. **Building that content did not curate a field**, and a run
+  over it shows the machinery works, not that any finding it produces is true.
 - **Correlation estimation requires ground truth.** Until a probe set exists, `rho` is
   unmeasured and panel agreement is uninterpretable. The disclosure says so rather than
   defaulting to zero.

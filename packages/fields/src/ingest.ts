@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import {
+  CONTENT_CLASSES,
   CREDIBILITY_GRADES,
+  type ContentClass,
   type Credibility,
   RELIABILITY_GRADES,
   type Reliability,
@@ -25,6 +27,14 @@ export class UngradedSourceError extends Error {
 
 export interface SourceGrading {
   readonly reliability: Reliability;
+  /**
+   * Curated expertise, or content invented to exercise the engine.
+   *
+   * Required with no default. A source that does not say which it is, is the one case that
+   * must not be guessed: guessing `curated` launders an invention into evidence, and
+   * guessing `synthetic` silently discards real curation effort.
+   */
+  readonly contentClass: ContentClass;
   /** Who assigned the grade. Provenance for the grade itself, per §E.10. */
   readonly gradedBy: string;
   readonly gradedAt?: Date;
@@ -65,6 +75,22 @@ export function assertGraded(source: SourceInput): void {
       `Source ${uri} has reliability "${grading.reliability}", which is not an Admiralty grade (${RELIABILITY_GRADES.join('/')}).`,
     );
   }
+  if (!CONTENT_CLASSES.includes(grading.contentClass)) {
+    throw new UngradedSourceError(
+      `Source ${uri} does not declare a content class (${CONTENT_CLASSES.join('/')}). ` +
+        `Synthetic content is legitimate for exercising the engine, but only while it stays ` +
+        `impossible to mistake for curated expertise.`,
+    );
+  }
+  // Synthetic material has no source to be reliable and nothing independent to corroborate
+  // it. F and 6 are the Admiralty codes for exactly that, and claiming better would launder
+  // an invention into evidence.
+  if (grading.contentClass === 'synthetic' && grading.reliability !== 'F') {
+    throw new UngradedSourceError(
+      `Synthetic source ${uri} claims reliability ${grading.reliability}. Synthetic content ` +
+        `must carry F ("cannot be judged"): it is not weak evidence, it is not evidence.`,
+    );
+  }
   if (typeof grading.gradedBy !== 'string' || grading.gradedBy.trim() === '') {
     throw new UngradedSourceError(
       `Source ${uri} does not record who assigned its grade. A grade without provenance is not auditable.`,
@@ -92,6 +118,12 @@ export function assertGraded(source: SourceInput): void {
     if (chunk.text.trim() === '') {
       throw new UngradedSourceError(`Chunk ${i} of ${uri} is empty.`);
     }
+    if (grading.contentClass === 'synthetic' && chunk.credibility !== 6) {
+      throw new UngradedSourceError(
+        `Chunk ${i} of synthetic source ${uri} claims credibility ${chunk.credibility}. ` +
+          `Synthetic content carries 6 ("cannot be judged") on both axes.`,
+      );
+    }
   });
 }
 
@@ -115,8 +147,8 @@ export async function ingestSource(
   await client.query('BEGIN');
   try {
     await client.query(
-      `INSERT INTO field_sources (id, field_id, uri, title, reliability, graded_by, graded_at, corpus_cutoff)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      `INSERT INTO field_sources (id, field_id, uri, title, reliability, graded_by, graded_at, corpus_cutoff, content_class)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
       [
         sourceId,
         source.fieldId,
@@ -126,6 +158,7 @@ export async function ingestSource(
         source.grading.gradedBy,
         source.grading.gradedAt ?? new Date(),
         source.grading.corpusCutoff ?? null,
+        source.grading.contentClass,
       ],
     );
 
