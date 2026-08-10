@@ -16,27 +16,53 @@ describe('seedRegistry', () => {
 describe.skipIf(!HAS_DB)('seedRegistry (database)', () => {
   beforeAll(async () => {
     await setupSchema();
-    await withClient(async (client) => {
-      await client.query('DELETE FROM relevance_predicates');
-      await client.query('DELETE FROM domains');
-    });
+    // Deliberately does NOT wipe the registry first. Panels reference domains, so a wipe
+    // would fail once any panel exists — and asserting end state rather than insert deltas
+    // is the more useful property anyway: seeding is idempotent, so what matters is that
+    // the registry is complete afterwards, not how many rows this particular call wrote.
+    await withClient((client) => seedRegistry(client, SEED_DOMAINS));
   });
   afterAll(teardown);
 
-  it('writes every domain and predicate', async () => {
-    const result = await withClient((client) => seedRegistry(client, SEED_DOMAINS));
+  it('leaves every domain present', async () => {
+    const { rows } = await withClient((client) =>
+      client.query<{ id: string }>('SELECT id FROM domains ORDER BY id'),
+    );
+    const present = new Set(rows.map((r) => r.id));
 
+    for (const domain of SEED_DOMAINS) {
+      expect(present.has(domain.id), `${domain.id} missing from registry`).toBe(true);
+    }
+  });
+
+  it('leaves every relevance predicate present', async () => {
+    const { rows } = await withClient((client) =>
+      client.query<{ domain_id: string; kind: string; value: string }>(
+        'SELECT domain_id, kind, value FROM relevance_predicates',
+      ),
+    );
+    const present = new Set(rows.map((r) => `${r.domain_id}|${r.kind}|${r.value}`));
+
+    for (const domain of SEED_DOMAINS) {
+      for (const p of domain.predicates) {
+        expect(present.has(`${domain.id}|${p.kind}|${p.value}`), `${domain.id} ${p.value}`).toBe(true);
+      }
+    }
+  });
+
+  it('reports the archetypes it seeded', async () => {
+    const result = await withClient((client) => seedRegistry(client, SEED_DOMAINS));
     expect(result.domains).toBe(SEED_DOMAINS.length);
-    expect(result.predicates).toBe(SEED_DOMAINS.reduce((n, d) => n + d.predicates.length, 0));
     expect(result.archetypes).toHaveLength(6);
   });
 
   it('is idempotent', async () => {
-    const before = await withClient((client) => client.query('SELECT count(*) FROM domains'));
-    await withClient((client) => seedRegistry(client, SEED_DOMAINS));
-    const after = await withClient((client) => client.query('SELECT count(*) FROM domains'));
+    const count = async () =>
+      (await withClient((client) => client.query('SELECT count(*) FROM domains'))).rows[0];
 
-    expect(after.rows[0]).toEqual(before.rows[0]);
+    const before = await count();
+    await withClient((client) => seedRegistry(client, SEED_DOMAINS));
+    expect(await count()).toEqual(before);
   });
 
   it('persists the archetype-plural grouping (§B.3.1)', async () => {

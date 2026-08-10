@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { CanonicalValue } from '@mae/core';
 import { appendLedger, loadChain, verifyLedger } from '../src/ledger.ts';
-import { HAS_DB, setupSchema, teardown, withClient } from './helpers.ts';
+import { HAS_DB, openTestEvent, setupSchema, teardown, withClient } from './helpers.ts';
 
 /**
  * Appends `payloads` to `eventId`, one transaction each.
@@ -29,7 +29,7 @@ describe.skipIf(!HAS_DB)('ledger (database)', () => {
   afterAll(teardown);
 
   it('chains appends and verifies clean', async () => {
-    const eventId = randomUUID();
+    const eventId = await openTestEvent();
     await append(eventId, [0, 1, 2, 3, 4].map((index) => ({ index })));
 
     await withClient(async (client) => {
@@ -42,8 +42,8 @@ describe.skipIf(!HAS_DB)('ledger (database)', () => {
     // Every chain roots at the same genesis prev_hash, so without event_id in the preimage
     // these two first entries would hash alike and collide on ledger_hash_uq. See
     // hashPreimage: binding the entry to its event is what makes this safe.
-    const a = randomUUID();
-    const b = randomUUID();
+    const a = await openTestEvent();
+    const b = await openTestEvent();
     await append(a, [{ statement: 'identical opening finding' }]);
     await append(b, [{ statement: 'identical opening finding' }]);
 
@@ -58,8 +58,8 @@ describe.skipIf(!HAS_DB)('ledger (database)', () => {
   it('keeps events independent, so interleaved appends still verify', async () => {
     // seq is allocated globally. Two events interleaving take alternating seq values, and
     // each chain must still verify on its own.
-    const a = randomUUID();
-    const b = randomUUID();
+    const a = await openTestEvent();
+    const b = await openTestEvent();
 
     await withClient(async (client) => {
       for (let i = 0; i < 4; i++) {
@@ -92,7 +92,7 @@ describe.skipIf(!HAS_DB)('ledger (database)', () => {
   it('rejects UPDATE and DELETE at the database, not just by convention', async () => {
     // REVOKE alone does not constrain the table owner, which is the role we connect as.
     // The trigger is what actually makes this table append-only.
-    const eventId = randomUUID();
+    const eventId = await openTestEvent();
     await append(eventId, [{ statement: 'recorded' }]);
 
     await withClient(async (client) => {
@@ -111,7 +111,7 @@ describe.skipIf(!HAS_DB)('ledger (database)', () => {
   it('detects tampering that bypasses the trigger', async () => {
     // The trigger stops the application. It does not stop someone with direct database
     // access from disabling it, which is exactly why the hash chain exists underneath.
-    const eventId = randomUUID();
+    const eventId = await openTestEvent();
     await append(eventId, [0, 1, 2, 3].map((i) => ({ statement: `original ${i}` })));
 
     await withClient(async (client) => {
@@ -137,7 +137,7 @@ describe.skipIf(!HAS_DB)('ledger (database)', () => {
   it('survives a payload whose JSONB key order Postgres reorders', async () => {
     // Postgres normalizes JSONB key order on storage. The hash is computed from the
     // canonical form before the insert, so a round-trip must still verify.
-    const eventId = randomUUID();
+    const eventId = await openTestEvent();
     await append(eventId, [{ zulu: 1, alpha: 2, mike: { yankee: 3, bravo: 4 } }]);
 
     await withClient(async (client) => {
@@ -146,14 +146,29 @@ describe.skipIf(!HAS_DB)('ledger (database)', () => {
   });
 
   it('rejects a kind outside the Scribe instrumentation list', async () => {
+    const eventId = await openTestEvent();
     await withClient(async (client) => {
       await expect(
         client.query(
           `INSERT INTO ledger (event_id, phase, actor, kind, payload, prev_hash, hash)
            VALUES ($1, 1, 'system', 'invented_kind', '{}'::jsonb, $2, $3)`,
-          [randomUUID(), '0'.repeat(64), randomUUID()],
+          [eventId, '0'.repeat(64), randomUUID()],
         ),
       ).rejects.toThrow(/ledger_kind_check/);
+    });
+  });
+
+  it('refuses a ledger entry for an event nothing issued', async () => {
+    // Migration 0009 gave event_id a referent. Before it, any UUID was accepted and the
+    // column named a thing that need not exist.
+    await withClient(async (client) => {
+      await expect(
+        client.query(
+          `INSERT INTO ledger (event_id, phase, actor, kind, payload, prev_hash, hash)
+           VALUES ($1, 1, 'system', 'persona_output', '{}'::jsonb, $2, $3)`,
+          [randomUUID(), '0'.repeat(64), randomUUID()],
+        ),
+      ).rejects.toThrow(/ledger_event_fkey/);
     });
   });
 });

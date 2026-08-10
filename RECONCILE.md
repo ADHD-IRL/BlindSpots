@@ -178,6 +178,72 @@ known-best chunk still ranks first.
 
 ---
 
+## 7c. `event_id` gets a referent: the `events` table
+
+**Not a plan deviation — a gap the plan left open.**
+
+`ledger`, `findings`, `gap_declarations`, `abandoned_paths`, `position_changes`, `dissents`
+and `chains` all key on `event_id`, and nothing created one. The column named a thing that
+did not exist, and any UUID was accepted.
+
+Migration `0009` adds `events(id, scenario_id, panel_id, phase, opened_at, closed_at)` — one
+run of the §B.8 workflow over one scenario with one panel — backfills a row for every
+distinct `event_id` already in the ledger, and only then adds the foreign keys. The backfill
+matters: the ledger is append-only, and dropping entries to satisfy a new constraint would be
+exactly the tampering the chain exists to prevent.
+
+`events.phase` is where the §B.8 phase state machine will live at M4.
+
+---
+
+## 7d. Scenarios record their subject characteristics
+
+`convene()` scores domains against relevance predicates, half of which are
+`subject_characteristic` kind, and the `scenarios` table had no such column. A persisted
+scenario could not be re-convened, so the panel could not be reproduced from the record —
+which defeats §B.6 step 6's point that the scenario and panel "become the charter everything
+downstream traces to." A charter you cannot re-derive is a claim, not a record.
+
+Migration `0008` adds it, and a round-trip test re-convenes a loaded scenario and asserts the
+result is byte-identical to the original proposal.
+
+---
+
+## 7e. `model_id` is assigned at panel construction from a required roster
+
+`panel_members.model_id` is NOT NULL "for correlation tracking (§B.7.2)", and there is no
+model layer yet. Three options were live: nullable until Phase 1, a placeholder sentinel, or
+an explicit roster at composition time.
+
+**Decision: an explicit, required, non-empty roster.** §B.9 requires the Challenger not share
+a model with the persona it attacks, and M7 is specified to assert that *at panel
+construction* and fail loudly if unsatisfiable. Deferring the binding would leave that
+assertion with nothing to check at the point it is specified to run. A single-model roster is
+allowed and records `challengerIndependenceSatisfiable: false` plus a prominent disclosure —
+which is the honest state of the system today, not a failure.
+
+The composition-time disclosure deliberately does **not** reuse `discloseAgreement`'s
+sentence. That one reports agreement a panel has reached; at composition the panel has not
+run, and "N personas concurred" would assert a result that does not exist.
+
+---
+
+## 7f. An approved panel is frozen, and approval is write-once
+
+§B.6 step 6: the scenario and panel composition "become the charter everything downstream
+traces to." Editing the composition after signature silently invalidates every traceback that
+cites it, and a signature that can be moved is not a signature.
+
+Migration `0009` adds triggers rejecting any change to `panel_members` once the parent panel
+is approved, and any rewrite of `approved_by`/`approved_at` once set — the same reasoning as
+the ledger's append-only trigger, enforced in the same place.
+
+`requireApprovedPanel` demands **both** signatures. §B.11 lists scenario authorship and panel
+composition approval as two separate non-delegable decisions, so signing the composition does
+not ratify the framing — and framing errors dominate (§B.6 step 5).
+
+---
+
 ## 8. Scope inclusion is checked against a declared field, not inferred from prose
 
 **Plan (§M3 rule 6):** "Statement subject must fall within `scope_inclusions`."

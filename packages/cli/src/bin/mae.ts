@@ -1,14 +1,32 @@
 import { randomUUID } from 'node:crypto';
-import { SEED_DOMAINS, verifyChain } from '@mae/core';
-import { SpineRiskError, closePool, loadChain, migrate, seedRegistry, withClient } from '@mae/store';
+import { SEED_DOMAINS, SEED_REGISTRY, convene, verifyChain } from '@mae/core';
+import {
+  SpineRiskError,
+  approvePanel,
+  approveScenario,
+  closePool,
+  loadChain,
+  loadPanel,
+  migrate,
+  openEvent,
+  seedRegistry,
+  withClient,
+} from '@mae/store';
 import { proposePanel } from '../commands.ts';
 
 const USAGE = `mae — MAE panel engine operator CLI
 
-  panel:propose --scenario <path>   Convene a panel from a scenario file
-  seed:registry [--archetypes a,b]  Write the seed registry to Postgres
-  ledger:verify --event <uuid>      Walk an event's hash chain
-  charter:check [--corpus <path>]   Run the validator over a corpus of findings
+  panel:propose --scenario <path>          Convene a panel from a scenario file
+      [--persist --models a,b]             ...and open a Phase 0 event for it
+  panel:show --panel <uuid>                Render a persisted panel and its approval state
+  panel:approve --panel <uuid> --by <who>  Sign off the panel composition
+  scenario:approve --scenario <uuid> --by <who>
+                                           Sign off the scenario framing
+  seed:registry [--archetypes a,b]         Write the seed registry to Postgres
+  ledger:verify --event <uuid>             Walk an event's hash chain
+  charter:check [--corpus <path>]          Run the validator over a corpus of findings
+
+Both signatures are required before any persona runs (Appendix B §B.11).
 `;
 
 function flag(name: string): string | undefined {
@@ -29,7 +47,64 @@ const command = process.argv[2];
 
 switch (command) {
   case 'panel:propose': {
-    console.log(proposePanel(requireFlag('scenario')));
+    const scenarioPath = requireFlag('scenario');
+
+    if (!process.argv.includes('--persist')) {
+      console.log(proposePanel(scenarioPath));
+      break;
+    }
+
+    const { readScenarioFile, renderPersistedPanel } = await import('../commands.ts');
+    const scenario = readScenarioFile(scenarioPath);
+    const proposal = convene(scenario, SEED_REGISTRY);
+
+    // §B.7.2 ranks heterogeneous base models as the strongest mitigation for correlated
+    // error, so the roster is an explicit operator decision rather than a default.
+    const modelRoster = (flag('models') ?? '').split(',').map((m) => m.trim()).filter(Boolean);
+    if (modelRoster.length === 0) {
+      console.error('--persist requires --models a,b (see Appendix B §B.7.2)');
+      process.exit(2);
+    }
+
+    const persisted = await withClient(async (client) => {
+      await migrate(client);
+      return openEvent(client, scenario, proposal, SEED_REGISTRY, { modelRoster });
+    });
+
+    console.log(proposePanel(scenarioPath));
+    console.log(renderPersistedPanel(persisted));
+    console.log('');
+    console.log('Panel is NOT approved. Both signatures are required before any persona runs:');
+    console.log(`  pnpm cli scenario:approve --scenario ${persisted.scenarioId} --by "human:<name>"`);
+    console.log(`  pnpm cli panel:approve --panel ${persisted.panelId} --by "human:<name>"`);
+
+    await closePool();
+    break;
+  }
+
+  case 'panel:show': {
+    const { renderPersistedPanel } = await import('../commands.ts');
+    const panel = await withClient((client) => loadPanel(client, requireFlag('panel')));
+    console.log(renderPersistedPanel(panel));
+    await closePool();
+    break;
+  }
+
+  case 'panel:approve': {
+    const panelId = requireFlag('panel');
+    const by = requireFlag('by');
+    await withClient((client) => approvePanel(client, panelId, by));
+    console.log(`Panel ${panelId} composition approved by ${by}.`);
+    await closePool();
+    break;
+  }
+
+  case 'scenario:approve': {
+    const scenarioId = requireFlag('scenario');
+    const by = requireFlag('by');
+    await withClient((client) => approveScenario(client, scenarioId, by));
+    console.log(`Scenario ${scenarioId} framing approved by ${by}.`);
+    await closePool();
     break;
   }
 
@@ -110,8 +185,8 @@ switch (command) {
     // Phase 0 is human-led: this only assigns an id and echoes the artifact back. The
     // scenario and panel become the charter everything downstream traces to, and §B.11
     // makes scenario authorship non-delegable.
-    const { loadScenario } = await import('../commands.ts');
-    const scenario = loadScenario(requireFlag('from'));
+    const { readScenarioFile } = await import('../commands.ts');
+    const scenario = readScenarioFile(requireFlag('from'));
     console.log(JSON.stringify({ ...scenario, id: scenario.id || randomUUID() }, null, 2));
     break;
   }
