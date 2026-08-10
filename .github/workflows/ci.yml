@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  core:
+    # packages/core is pure, so this job needs no database, no network, and no API keys.
+    # It is where correctness actually lives, and it must never be the slow or flaky job.
+    name: core (pure)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - name: Unit tests with coverage thresholds on charter, composition and metrics
+        run: pnpm vitest run --project core --coverage
+
+  database:
+    name: store and fields (pgvector)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: mae
+          POSTGRES_PASSWORD: mae
+          POSTGRES_DB: mae
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mae -d mae"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgres://mae:mae@localhost:5432/mae
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm migrate
+      - name: Migrations are idempotent
+        run: pnpm migrate
+      - run: pnpm test:db

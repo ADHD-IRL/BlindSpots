@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: mae
+      POSTGRES_PASSWORD: mae
+      POSTGRES_DB: mae
+    ports:
+      - '5432:5432'
+    volumes:
+      - mae-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U mae -d mae']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  mae-pgdata:

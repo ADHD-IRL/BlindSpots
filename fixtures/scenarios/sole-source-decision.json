@@ -1,0 +1,35 @@
+{
+  "$comment": "No Blind Spots, Appendix B §B.2.5, Scenario 2. Sole-source decision on a critical component. Expected panel is transcribed from the book: 'economic and supplier financial, geopolitical, contracting and acquisition, export control, supply chain vendor risk, counterintelligence. No materials personas. No cyber. No structures.'",
+  "scenario": {
+    "id": "aaaaaaaa-0002-4000-8000-000000000002",
+    "subject": "Sole-source award for a critical RF front-end component",
+    "lifecycleStage": "design",
+    "missionFunction": "Provide the only qualified source for a mission-critical subsystem",
+    "consequenceClasses": ["program_disruption", "adversary_capability_advantage", "legal_exposure"],
+    "informingDecision": "Source selection authority decision on sole-source justification",
+    "decisionDate": "2026-09-15",
+    "adversarySet": ["state_actor_economic_coercion", "vendor_beneficial_owner"],
+    "accessConstraints": "Beneficial ownership beyond first tier not disclosed",
+    "classification": "CUI",
+    "subjectCharacteristics": [
+      "sole_source_dependency",
+      "foreign_ownership_influence",
+      "foreign_technology_transfer",
+      "acquisition_and_contracting"
+    ],
+    "exclusions": [],
+    "authoredBy": "human:lead_analyst"
+  },
+  "expectedPanel": {
+    "full": [
+      "counterintelligence",
+      "economic_supplier_financial",
+      "geopolitical",
+      "legal.contracting_acquisition",
+      "legal.export_control",
+      "supply_chain.vendor_intent"
+    ],
+    "screening": [],
+    "governanceGates": []
+  }
+}

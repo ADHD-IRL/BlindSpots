@@ -1,0 +1,31 @@
+{
+  "name": "mae-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@10.33.0",
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:db": "vitest run --project store --project fields",
+    "migrate": "node --experimental-strip-types packages/store/src/bin/migrate.ts",
+    "seed:registry": "node --experimental-strip-types packages/cli/src/bin/mae.ts seed:registry",
+    "cli": "node --experimental-strip-types packages/cli/src/bin/mae.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "@types/node": "^22.10.5",
+    "@types/pg": "^8.21.0",
+    "@vitest/coverage-v8": "^3.0.5",
+    "eslint": "^9.18.0",
+    "fast-check": "^3.23.2",
+    "pg": "^8.23.0",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.20.0",
+    "vitest": "^3.0.5"
+  }
+}

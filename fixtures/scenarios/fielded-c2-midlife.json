@@ -1,0 +1,38 @@
+{
+  "$comment": "No Blind Spots, Appendix B §B.2.5, Scenario 3. Fielded command and control system at mid-life. Expected panel is transcribed from the book: 'network and systems architecture, detection engineering, insider threat, counterintelligence, spectrum and emissions, information environment, geopolitical. No materials. No structures. Legal at screening depth only.'",
+  "scenario": {
+    "id": "aaaaaaaa-0003-4000-8000-000000000003",
+    "subject": "Fielded command and control system at mid-life",
+    "lifecycleStage": "fielded",
+    "missionFunction": "Provide the operational picture and tasking path for a theater command",
+    "consequenceClasses": ["information_compromise", "mission_unavailability", "decision_corruption"],
+    "informingDecision": "Mid-life technology refresh scope and sustainment funding decision",
+    "decisionDate": "2027-02-28",
+    "adversarySet": ["state_actor_collection", "insider_with_privileged_access"],
+    "accessConstraints": "Vendor-held telemetry and detection logic not available for review",
+    "classification": "SECRET",
+    "subjectCharacteristics": [
+      "networked_system",
+      "fielded_software",
+      "electronic_emission",
+      "cleared_personnel_privileged_access",
+      "public_program_profile",
+      "classified_information_handling"
+    ],
+    "exclusions": [],
+    "authoredBy": "human:lead_analyst"
+  },
+  "expectedPanel": {
+    "full": [
+      "counterintelligence",
+      "detection_engineering",
+      "geopolitical",
+      "information_environment",
+      "insider_threat",
+      "network_systems_architecture",
+      "spectrum_emissions"
+    ],
+    "screening": ["legal.legal_regulatory"],
+    "governanceGates": []
+  }
+}

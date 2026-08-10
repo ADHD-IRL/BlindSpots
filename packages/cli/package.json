@@ -1,0 +1,12 @@
+{
+  "name": "@mae/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": { "mae": "./src/bin/mae.ts" },
+  "dependencies": {
+    "@mae/core": "workspace:*",
+    "@mae/fields": "workspace:*",
+    "@mae/store": "workspace:*"
+  }
+}
