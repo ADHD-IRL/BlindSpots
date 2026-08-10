@@ -1,0 +1,39 @@
+{
+  "$comment": "No Blind Spots, Appendix B §B.2.5, Scenario 1. Bonded composite primary structure entering qualification. Expected panel is transcribed from the book: 'polymers and adhesives, metallurgy, process chemistry, structures, analytical and detection design, supply chain provenance, logistics and storage conditions. Screening depth: legal for foreign processor audit rights, digital thread integrity for build and cure records. No cyber persona at full depth. No geopolitical. No information environment.'",
+  "scenario": {
+    "id": "aaaaaaaa-0001-4000-8000-000000000001",
+    "subject": "Bonded composite primary structure, wing center section",
+    "lifecycleStage": "qualification",
+    "missionFunction": "Carry primary flight loads for the service life of the airframe",
+    "consequenceClasses": ["physical_failure_in_service", "safety_event"],
+    "informingDecision": "Qualification test readiness review and structural substantiation sign-off",
+    "decisionDate": "2026-11-30",
+    "adversarySet": ["state_actor_supply_chain_access", "opportunistic_quality_escape"],
+    "accessConstraints": "Cure records and bath chemistry held by tier-2 processor; not contractually deliverable",
+    "classification": "CUI",
+    "subjectCharacteristics": [
+      "bonded_primary_structure",
+      "composite_material",
+      "controlled_process",
+      "foreign_jurisdiction_supplier",
+      "certificate_dependent_acceptance",
+      "digital_build_records",
+      "shelf_life_sensitive"
+    ],
+    "exclusions": [],
+    "authoredBy": "human:lead_analyst"
+  },
+  "expectedPanel": {
+    "full": [
+      "analytical_detection_design",
+      "logistics_storage",
+      "materials.metallurgy",
+      "materials.polymers_adhesives",
+      "materials.process_chemistry",
+      "structures",
+      "supply_chain.provenance"
+    ],
+    "screening": ["digital_thread_integrity", "legal.legal_regulatory"],
+    "governanceGates": ["governed_consequence"]
+  }
+}

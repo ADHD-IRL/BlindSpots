@@ -25,7 +25,6 @@ export default defineConfig({
         test: {
           name: 'store',
           include: ['packages/store/test/**/*.test.ts'],
-          fileParallelism: false,
         },
       },
       {
@@ -33,7 +32,6 @@ export default defineConfig({
         test: {
           name: 'fields',
           include: ['packages/fields/test/**/*.test.ts'],
-          fileParallelism: false,
         },
       },
       {

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { CanonicalValue } from '@mae/core';
 import { appendLedger, loadChain, verifyLedger } from '../src/ledger.ts';
 import { HAS_DB, setupSchema, teardown, withClient } from './helpers.ts';
 
@@ -7,7 +8,7 @@ import { HAS_DB, setupSchema, teardown, withClient } from './helpers.ts';
  * Appends `payloads` to `eventId`, one transaction each.
  * Mirrors how the engine appends: every entry is committed before the next is built.
  */
-async function append(eventId: string, payloads: readonly Record<string, unknown>[]): Promise<void> {
+async function append(eventId: string, payloads: readonly CanonicalValue[]): Promise<void> {
   await withClient(async (client) => {
     for (const payload of payloads) {
       await client.query('BEGIN');
