@@ -101,6 +101,83 @@ describe.skipIf(!HAS_DB)('retrieve (database)', () => {
     expect(results).toEqual([]);
   });
 
+  it('does not lose the best match in a field larger than the candidate bound', async () => {
+    // The regression this guards: an earlier query matched the whole field whenever an
+    // embedder was supplied, then took an arbitrary LIMIT of it, so on a field of any real
+    // size the best-tagged chunk could be discarded before scoring ever ran. Each arm is
+    // now bounded AND ordered, which is what makes the bound meaningful.
+    const bigField = `materials.metallurgy.bulk.${randomUUID()}`;
+    const FILLER = 250; // comfortably above the per-arm limit
+
+    await withClient(async (client) => {
+      await ingestSource(
+        client,
+        {
+          fieldId: bigField,
+          uri: 'https://example.invalid/bulk-filler',
+          grading: { reliability: 'C', gradedBy: 'human:curator' },
+          chunks: Array.from({ length: FILLER }, (_, i) => ({
+            text: `Unrelated background note ${i}.`,
+            credibility: 4 as const,
+            situationTags: ['background_note'],
+          })),
+        },
+        embedder,
+      );
+
+      // Ingested last, so any "first N rows the planner returned" strategy misses it.
+      await ingestSource(
+        client,
+        {
+          fieldId: bigField,
+          uri: 'https://example.invalid/the-one-that-matters',
+          grading: { reliability: 'A', gradedBy: 'human:curator' },
+          chunks: [
+            {
+              text: 'Trace constituent shift altered long term aging in an unexpected lot variation.',
+              credibility: 1,
+              situationTags: [
+                'unexpected_lot_variation',
+                'trace_constituent_shift',
+                'long_term_aging',
+              ],
+            },
+          ],
+        },
+        embedder,
+      );
+    });
+
+    const results = await withClient((client) =>
+      retrieve(
+        client,
+        bigField,
+        {
+          situationType: 'unexpected_lot_variation',
+          cuePatterns: ['trace_constituent_shift'],
+          failureModes: ['long_term_aging'],
+        },
+        5,
+        embedder,
+      ),
+    );
+
+    expect(results[0]!.chunk.text).toContain('Trace constituent shift');
+    expect(results[0]!.tagOverlap).toBe(1);
+  });
+
+  it('retrieves via the vector arm when tags miss entirely', async () => {
+    // The arm exists to catch chunks whose tagging is incomplete. Without a separate KNN
+    // query it never contributes anything the tag arm did not already find.
+    const results = await withClient((client) =>
+      retrieve(client, fieldId, { situationType: 'a_tag_no_chunk_carries' }, 5, embedder),
+    );
+
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((r) => r.tagOverlap === 0)).toBe(true);
+    expect(results.every((r) => r.similarity > 0)).toBe(true);
+  });
+
   it('rolls back entirely when a chunk fails mid-ingest', async () => {
     // Partial ingest would leave a source claiming coverage it does not have.
     const bad: SourceInput = {

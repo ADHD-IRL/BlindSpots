@@ -46,7 +46,10 @@ export function implicatedArchetypes(
 ): ReadonlySet<Archetype> {
   const out = new Set<Archetype>();
   for (const c of classes) {
-    for (const archetype of ARCHETYPE_MAP[c] ?? []) out.add(archetype);
+    // No `?? []` fallback: ARCHETYPE_MAP is total over ConsequenceClass and a test asserts
+    // it. A fallback here would be unreachable branch coverage standing in for a guarantee
+    // the type system already provides.
+    for (const archetype of ARCHETYPE_MAP[c]) out.add(archetype);
   }
   return out;
 }

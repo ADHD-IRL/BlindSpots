@@ -119,6 +119,13 @@ describe('effectiveN — Appendix E §E.4.1 design effect table', () => {
   ])('rejects n = %p, rho = %p', (n, rho) => {
     expect(() => effectiveN(n, rho)).toThrow(RangeError);
   });
+
+  it.each([[-0.1], [1.1], [Number.NaN], [Number.POSITIVE_INFINITY]])(
+    'effectiveNLimit rejects rho = %p',
+    (rho) => {
+      expect(() => effectiveNLimit(rho)).toThrow(RangeError);
+    },
+  );
 });
 
 describe('discloseAgreement — §E.4.3', () => {

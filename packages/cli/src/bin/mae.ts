@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { SEED_DOMAINS, verifyChain } from '@mae/core';
-import { closePool, loadChain, migrate, withClient } from '@mae/store';
+import { SpineRiskError, closePool, loadChain, migrate, seedRegistry, withClient } from '@mae/store';
 import { proposePanel } from '../commands.ts';
 
 const USAGE = `mae — MAE panel engine operator CLI
@@ -34,59 +34,30 @@ switch (command) {
   }
 
   case 'seed:registry': {
-    // §C.8 stage 1 wants a first stage drawn from at least two archetypes: seeding from one
-    // builds a spine that later stages must fight.
     const requested = flag('archetypes')?.split(',').map((a) => a.trim()).filter(Boolean);
     const domains =
       requested === undefined
         ? SEED_DOMAINS
         : SEED_DOMAINS.filter((d) => requested.includes(d.archetype));
 
-    const archetypes = new Set(domains.map((d) => d.archetype));
-    if (archetypes.size < 2) {
-      console.error(
-        `Refusing to seed from ${archetypes.size} archetype(s). Appendix C §C.8 stage 1 ` +
-          `requires at least two: a registry seeded from one builds the spine the ` +
-          `architecture exists to prevent, and the golden scenario tests will not catch it.`,
+    try {
+      const result = await withClient(async (client) => {
+        await migrate(client);
+        return seedRegistry(client, domains);
+      });
+      console.log(
+        `Seeded ${result.domains} domains and ${result.predicates} relevance predicates ` +
+          `across ${result.archetypes.length} archetypes: ${result.archetypes.join(', ')}.`,
       );
-      process.exit(1);
+    } catch (error) {
+      if (error instanceof SpineRiskError) {
+        console.error(error.message);
+        await closePool();
+        process.exit(1);
+      }
+      throw error;
     }
 
-    await withClient(async (client) => {
-      await migrate(client);
-      await client.query('BEGIN');
-      try {
-        // Parents first, so parent_domain references resolve.
-        for (const domain of [...domains].sort((a, b) => (a.parentDomain === undefined ? -1 : 1) - (b.parentDomain === undefined ? -1 : 1))) {
-          await client.query(
-            `INSERT INTO domains (id, display_name, archetype, scope_inclusions, scope_exclusions, status)
-             VALUES ($1, $2, $3, $4, $5, $6)
-             ON CONFLICT (id) DO NOTHING`,
-            [
-              domain.id,
-              domain.displayName,
-              domain.archetype,
-              domain.scopeInclusions,
-              JSON.stringify(domain.scopeExclusions),
-              domain.status,
-            ],
-          );
-          for (const predicate of domain.predicates) {
-            await client.query(
-              `INSERT INTO relevance_predicates (domain_id, kind, value, weight)
-               VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`,
-              [domain.id, predicate.kind, predicate.value, predicate.weight],
-            );
-          }
-        }
-        await client.query('COMMIT');
-      } catch (error) {
-        await client.query('ROLLBACK');
-        throw error;
-      }
-    });
-
-    console.log(`Seeded ${domains.length} domains across ${archetypes.size} archetypes.`);
     await closePool();
     break;
   }

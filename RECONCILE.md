@@ -96,6 +96,21 @@ with fields joined by U+001F so content cannot shift across a field boundary und
 
 ---
 
+## 5a. No `duplicate_hash` divergence reason
+
+An earlier draft of `verifyChain` carried one. It is unreachable: every entry's hash covers
+its `prev_hash`, so two entries can only hash alike if their predecessors did, back to a
+shared genesis — and a replayed row is caught by the prev_hash walk long before that.
+Reaching the branch would require a SHA-256 collision, which breaks every other guarantee
+first. Storage-level uniqueness is enforced where it can be, by the `ledger_hash_uq` index.
+
+Removed rather than left untested. An untestable branch standing in for a guarantee is worse
+than no branch, because it reads like a check that runs.
+
+`packages/core/src/ledger/types.ts`
+
+---
+
 ## 6. `seq` is verified as strictly increasing, not contiguous
 
 **Plan (§2.3):** `seq BIGSERIAL PRIMARY KEY`, allocated globally across all events.
@@ -119,6 +134,47 @@ A store test disables the trigger, tampers, and confirms the hash chain still ca
 because the trigger stops the application, not someone with direct database access.
 
 `packages/store/migrations/0003_ledger.sql`
+
+---
+
+## 7a. `parent_domain` is a namespace, not a reference to another domain
+
+**Plan (§2.1):** `parent_domain TEXT REFERENCES domains(id)`.
+
+**Problem:** the self-referencing foreign key forces every parent to exist as a `domains`
+row, and `domains.archetype` is NOT NULL. For `materials` and `legal` an archetype would be
+arbitrary. For `supply_chain` it would be actively wrong — §B.3.1 exists precisely because
+supply chain spans three archetypes, and "a single persona holding all three will apply
+whichever archetype's confidence discipline is loosest, which is the failure mode this whole
+structure exists to prevent." The FK was therefore unsatisfiable, and the first seeder
+silently dropped the column: the plural grouping existed in TypeScript and not in the
+database.
+
+**Decision:** migration `0007` drops the FK and adds a CHECK that a parent is a genuine
+namespace prefix of the ids it groups (`id LIKE parent_domain || '.%'`, and never itself), so
+the grouping stays derivable rather than an arbitrary label. `seedRegistry` writes the column.
+
+`packages/store/migrations/0007_parent_domain_is_a_namespace.sql`, `packages/store/src/seed.ts`
+
+---
+
+## 7b. Retrieval bounds each arm separately instead of truncating before ranking
+
+**Not a plan deviation — a defect in the first implementation of M2.**
+
+`retrieve()` issued a single query whose predicate matched the entire field whenever an
+embedder was supplied (`... OR $3::boolean`), then took an unordered `LIMIT 200` of it. The
+pure ranker then sorted whatever arbitrary rows came back, so on a field of any real size the
+best matches were discarded before scoring, and the HNSW index was never used for the one
+thing it exists to do. Demonstrated against a 251-chunk field: the old query returned 200
+rows containing zero matches for the best-tagged chunk.
+
+Now two arms, each bounded **and ordered** on its own terms — tag overlap (GIN, ordered by
+intersection size) and vector KNN (HNSW, `ORDER BY embedding <=> $q`) — deduplicated and
+handed to the unchanged pure ranker. A DB test ingests past the per-arm bound and asserts the
+known-best chunk still ranks first.
+
+`packages/fields/src/retrieve.ts`
 
 ---
 

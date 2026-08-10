@@ -21,7 +21,6 @@ import {
  * @param entries Rows for a single event, ascending by `seq`.
  */
 export function verifyChain(entries: readonly StoredLedgerEntry[]): VerifyResult {
-  const seenHashes = new Set<string>();
   let expectedPrev = GENESIS_PREV_HASH;
   let lastSeq: number | null = null;
 
@@ -53,11 +52,6 @@ export function verifyChain(entries: readonly StoredLedgerEntry[]): VerifyResult
         `Recomputed hash ${recomputed} does not match recorded ${entry.hash}`,
       );
     }
-
-    if (seenHashes.has(entry.hash)) {
-      return diverge(entry.seq, 'duplicate_hash', `Hash ${entry.hash} appears more than once`);
-    }
-    seenHashes.add(entry.hash);
 
     expectedPrev = entry.hash;
     lastSeq = entry.seq;

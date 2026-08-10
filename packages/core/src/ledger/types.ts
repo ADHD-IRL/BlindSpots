@@ -61,8 +61,20 @@ export type DivergenceReason =
    */
   | 'seq_not_increasing'
   | 'prev_hash_mismatch'
-  | 'hash_mismatch'
-  | 'duplicate_hash';
+  | 'hash_mismatch';
+
+/**
+ * There is deliberately no `duplicate_hash` reason.
+ *
+ * Within a chained structure a repeated hash is unreachable: every entry's hash covers its
+ * `prev_hash`, so two entries can only hash alike if their predecessors did, back to a
+ * genesis both share — and a replayed row is caught by the prev_hash walk long before that.
+ * Reaching it would require a SHA-256 collision, which breaks every other guarantee first.
+ * Storage-level uniqueness is enforced where it can be: the `ledger_hash_uq` index.
+ *
+ * An untestable branch standing in for a guarantee is worse than no branch, because it reads
+ * like a check that runs.
+ */
 
 export interface Divergence {
   readonly seq: number;
