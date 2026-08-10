@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@mae/core": ["packages/core/src/index.ts"],
+      "@mae/core/*": ["packages/core/src/*"],
+      "@mae/store": ["packages/store/src/index.ts"],
+      "@mae/store/*": ["packages/store/src/*"],
+      "@mae/fields": ["packages/fields/src/index.ts"],
+      "@mae/fields/*": ["packages/fields/src/*"]
+    }
+  },
+  "include": ["packages/*/src/**/*.ts", "packages/*/test/**/*.ts", "*.ts", "fixtures/**/*.ts"]
+}
