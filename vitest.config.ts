@@ -12,6 +12,11 @@ const alias = {
 export default defineConfig({
   resolve: { alias },
   test: {
+    // The store and fields suites share one module-level connection pool and one database.
+    // Run files serially: in parallel, one file's `closePool` in afterAll tears the pool out
+    // from under another file still using it, which surfaces as unrelated suites appearing
+    // to skip. Core is pure and fast enough that serializing it costs nothing.
+    fileParallelism: false,
     projects: [
       // `core` is pure: no database, no network, no API keys. It always runs.
       {

@@ -96,6 +96,21 @@ with fields joined by U+001F so content cannot shift across a field boundary und
 
 ---
 
+## 5a. No `duplicate_hash` divergence reason
+
+An earlier draft of `verifyChain` carried one. It is unreachable: every entry's hash covers
+its `prev_hash`, so two entries can only hash alike if their predecessors did, back to a
+shared genesis — and a replayed row is caught by the prev_hash walk long before that.
+Reaching the branch would require a SHA-256 collision, which breaks every other guarantee
+first. Storage-level uniqueness is enforced where it can be, by the `ledger_hash_uq` index.
+
+Removed rather than left untested. An untestable branch standing in for a guarantee is worse
+than no branch, because it reads like a check that runs.
+
+`packages/core/src/ledger/types.ts`
+
+---
+
 ## 6. `seq` is verified as strictly increasing, not contiguous
 
 **Plan (§2.3):** `seq BIGSERIAL PRIMARY KEY`, allocated globally across all events.
@@ -119,6 +134,113 @@ A store test disables the trigger, tampers, and confirms the hash chain still ca
 because the trigger stops the application, not someone with direct database access.
 
 `packages/store/migrations/0003_ledger.sql`
+
+---
+
+## 7a. `parent_domain` is a namespace, not a reference to another domain
+
+**Plan (§2.1):** `parent_domain TEXT REFERENCES domains(id)`.
+
+**Problem:** the self-referencing foreign key forces every parent to exist as a `domains`
+row, and `domains.archetype` is NOT NULL. For `materials` and `legal` an archetype would be
+arbitrary. For `supply_chain` it would be actively wrong — §B.3.1 exists precisely because
+supply chain spans three archetypes, and "a single persona holding all three will apply
+whichever archetype's confidence discipline is loosest, which is the failure mode this whole
+structure exists to prevent." The FK was therefore unsatisfiable, and the first seeder
+silently dropped the column: the plural grouping existed in TypeScript and not in the
+database.
+
+**Decision:** migration `0007` drops the FK and adds a CHECK that a parent is a genuine
+namespace prefix of the ids it groups (`id LIKE parent_domain || '.%'`, and never itself), so
+the grouping stays derivable rather than an arbitrary label. `seedRegistry` writes the column.
+
+`packages/store/migrations/0007_parent_domain_is_a_namespace.sql`, `packages/store/src/seed.ts`
+
+---
+
+## 7b. Retrieval bounds each arm separately instead of truncating before ranking
+
+**Not a plan deviation — a defect in the first implementation of M2.**
+
+`retrieve()` issued a single query whose predicate matched the entire field whenever an
+embedder was supplied (`... OR $3::boolean`), then took an unordered `LIMIT 200` of it. The
+pure ranker then sorted whatever arbitrary rows came back, so on a field of any real size the
+best matches were discarded before scoring, and the HNSW index was never used for the one
+thing it exists to do. Demonstrated against a 251-chunk field: the old query returned 200
+rows containing zero matches for the best-tagged chunk.
+
+Now two arms, each bounded **and ordered** on its own terms — tag overlap (GIN, ordered by
+intersection size) and vector KNN (HNSW, `ORDER BY embedding <=> $q`) — deduplicated and
+handed to the unchanged pure ranker. A DB test ingests past the per-arm bound and asserts the
+known-best chunk still ranks first.
+
+`packages/fields/src/retrieve.ts`
+
+---
+
+## 7c. `event_id` gets a referent: the `events` table
+
+**Not a plan deviation — a gap the plan left open.**
+
+`ledger`, `findings`, `gap_declarations`, `abandoned_paths`, `position_changes`, `dissents`
+and `chains` all key on `event_id`, and nothing created one. The column named a thing that
+did not exist, and any UUID was accepted.
+
+Migration `0009` adds `events(id, scenario_id, panel_id, phase, opened_at, closed_at)` — one
+run of the §B.8 workflow over one scenario with one panel — backfills a row for every
+distinct `event_id` already in the ledger, and only then adds the foreign keys. The backfill
+matters: the ledger is append-only, and dropping entries to satisfy a new constraint would be
+exactly the tampering the chain exists to prevent.
+
+`events.phase` is where the §B.8 phase state machine will live at M4.
+
+---
+
+## 7d. Scenarios record their subject characteristics
+
+`convene()` scores domains against relevance predicates, half of which are
+`subject_characteristic` kind, and the `scenarios` table had no such column. A persisted
+scenario could not be re-convened, so the panel could not be reproduced from the record —
+which defeats §B.6 step 6's point that the scenario and panel "become the charter everything
+downstream traces to." A charter you cannot re-derive is a claim, not a record.
+
+Migration `0008` adds it, and a round-trip test re-convenes a loaded scenario and asserts the
+result is byte-identical to the original proposal.
+
+---
+
+## 7e. `model_id` is assigned at panel construction from a required roster
+
+`panel_members.model_id` is NOT NULL "for correlation tracking (§B.7.2)", and there is no
+model layer yet. Three options were live: nullable until Phase 1, a placeholder sentinel, or
+an explicit roster at composition time.
+
+**Decision: an explicit, required, non-empty roster.** §B.9 requires the Challenger not share
+a model with the persona it attacks, and M7 is specified to assert that *at panel
+construction* and fail loudly if unsatisfiable. Deferring the binding would leave that
+assertion with nothing to check at the point it is specified to run. A single-model roster is
+allowed and records `challengerIndependenceSatisfiable: false` plus a prominent disclosure —
+which is the honest state of the system today, not a failure.
+
+The composition-time disclosure deliberately does **not** reuse `discloseAgreement`'s
+sentence. That one reports agreement a panel has reached; at composition the panel has not
+run, and "N personas concurred" would assert a result that does not exist.
+
+---
+
+## 7f. An approved panel is frozen, and approval is write-once
+
+§B.6 step 6: the scenario and panel composition "become the charter everything downstream
+traces to." Editing the composition after signature silently invalidates every traceback that
+cites it, and a signature that can be moved is not a signature.
+
+Migration `0009` adds triggers rejecting any change to `panel_members` once the parent panel
+is approved, and any rewrite of `approved_by`/`approved_at` once set — the same reasoning as
+the ledger's append-only trigger, enforced in the same place.
+
+`requireApprovedPanel` demands **both** signatures. §B.11 lists scenario authorship and panel
+composition approval as two separate non-delegable decisions, so signing the composition does
+not ratify the framing — and framing errors dominate (§B.6 step 5).
 
 ---
 

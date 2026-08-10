@@ -21,6 +21,11 @@ export default tseslint.config(
       '@typescript-eslint/consistent-type-imports': 'error',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       eqeqeq: ['error', 'always'],
+      // Everything here runs under `node --experimental-strip-types`, which erases types
+      // rather than compiling them and so cannot desugar a parameter property into a field
+      // assignment. Typecheck and tests both pass on this syntax; only the CLI fails, at
+      // runtime, which is the worst place to find out. Caught at lint instead.
+      '@typescript-eslint/parameter-properties': ['error', { prefer: 'class-property' }],
     },
   },
   {

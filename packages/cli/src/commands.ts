@@ -8,13 +8,14 @@ import {
   validateFinding,
 } from '@mae/core';
 import type { FindingDraft, ViolationCode } from '@mae/core';
+import type { PersistedPanel } from '@mae/store';
 
 export interface ScenarioFixture {
   readonly scenario: Scenario;
   readonly expectedPanel?: unknown;
 }
 
-export function loadScenario(path: string): Scenario {
+export function readScenarioFile(path: string): Scenario {
   const parsed = JSON.parse(readFileSync(path, 'utf8')) as ScenarioFixture | Scenario;
   return 'scenario' in parsed ? parsed.scenario : parsed;
 }
@@ -69,7 +70,41 @@ export function renderProposal(proposal: PanelProposal): string {
 }
 
 export function proposePanel(scenarioPath: string): string {
-  return renderProposal(convene(loadScenario(scenarioPath), SEED_REGISTRY));
+  return renderProposal(convene(readScenarioFile(scenarioPath), SEED_REGISTRY));
+}
+
+/** Renders a persisted panel and, prominently, whether it is cleared to run. */
+export function renderPersistedPanel(panel: PersistedPanel): string {
+  const lines: string[] = [];
+
+  lines.push(`Panel    ${panel.panelId}`);
+  lines.push(`Event    ${panel.eventId}`);
+  lines.push(`Scenario ${panel.scenarioId}`);
+  lines.push('');
+
+  lines.push('APPROVAL (Appendix B §B.11, both required before any persona runs)');
+  lines.push(`  scenario authorship  ${panel.scenarioApprovedBy ?? 'NOT APPROVED'}`);
+  lines.push(`  panel composition    ${panel.panelApprovedBy ?? 'NOT APPROVED'}`);
+  lines.push('');
+
+  lines.push(`MEMBERS (${panel.members.length})`);
+  for (const member of panel.members) {
+    const flags = [
+      member.personaClass !== 'domain' ? member.personaClass : '',
+      member.provisional ? 'PROVISIONAL' : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+    lines.push(
+      `  ${member.personaId.padEnd(46)} ${member.depth.padEnd(9)} ${member.modelId}${flags === '' ? '' : `  [${flags}]`}`,
+    );
+  }
+  lines.push('');
+
+  lines.push('CORRELATION DISCLOSURE (Appendix E §E.4.3)');
+  lines.push(`  ${panel.correlation.statement}`);
+
+  return lines.join('\n');
 }
 
 export interface CharterCase {

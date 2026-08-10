@@ -9,6 +9,7 @@ import type {
   PersonaContext,
   ViolationCode,
 } from '../src/charter/types.ts';
+import { VIOLATION_CODES } from '../src/charter/types.ts';
 import { validateFinding } from '../src/charter/validate.ts';
 import type { GradedChunk } from '../src/retrieval/types.ts';
 import {
@@ -102,15 +103,26 @@ describe('adversarial corpus (fixtures/charter/non-conforming.json)', () => {
     );
   });
 
-  it('covers every violation code at least once', () => {
-    // A rule with no adversarial fixture is a rule nobody has watched fail.
-    const covered = new Set(CORPUS.flatMap((c) => c.expectedCodes));
-    const uncovered = (
-      ['CH005_GAP_DISCIPLINE'] as ViolationCode[]
-    ).filter((code) => !covered.has(code));
-    // CH005 needs a context-level fixture (required vs retrieved evidence classes), covered
-    // in its own describe block below rather than by the statement-level corpus.
-    expect(uncovered).toEqual(['CH005_GAP_DISCIPLINE']);
+  it('exercises every declared violation code', () => {
+    // Both directions matter. A code declared with no rule behind it is a constraint the
+    // charter advertises and does not enforce; a rule emitting a code the enum does not
+    // declare is a violation nothing downstream can route on. A rule with no adversarial
+    // fixture is a rule nobody has watched fail.
+    const fromCorpus = CORPUS.flatMap((c) => c.expectedCodes);
+
+    // CH005 is context-level rather than statement-level — it turns on required versus
+    // retrieved evidence classes — so it is driven here rather than from the corpus file.
+    const gapViolations = validateFinding(
+      { ...BASE_FINDING, claimedEvidenceClasses: ['cure_records'] },
+      {
+        ...BASE_CTX,
+        requiredEvidenceClasses: ['cure_records'],
+        retrievedEvidenceClasses: [],
+      },
+    );
+
+    const exercised = new Set<ViolationCode>([...fromCorpus, ...gapViolations.map((v) => v.code)]);
+    expect([...exercised].sort()).toEqual([...VIOLATION_CODES].sort());
   });
 });
 
@@ -249,6 +261,40 @@ describe('CH005 gap discipline (§C.2.5, §C.2.7)', () => {
   });
 });
 
+describe('CH009 grade discipline (§E.2.2)', () => {
+  it('rejects a finding citing a chunk that was never retrieved', () => {
+    // A distinct failure from grade inflation: the finding rests on evidence absent from its
+    // own retrieval set, so there is nothing to check the claimed grade against.
+    const finding: FindingDraft = {
+      ...BASE_FINDING,
+      sourceGrades: [{ chunkId: 'CHUNK_NEVER_RETRIEVED', reliability: 'C', credibility: 3 }],
+    };
+    const violation = validateFinding(finding, BASE_CTX).find(
+      (v) => v.code === 'CH009_GRADE_INFLATION',
+    )!;
+
+    expect(violation.detail).toContain('not in its retrieval set');
+    expect(violation.remediable).toBe(true);
+  });
+
+  it('accepts grades that match the retrieval set exactly', () => {
+    const finding: FindingDraft = {
+      ...BASE_FINDING,
+      sourceGrades: [{ chunkId: 'CHUNK_C3', reliability: 'C', credibility: 3 }],
+    };
+    expect(codes(validateFinding(finding, BASE_CTX))).toEqual([]);
+  });
+
+  it('accepts grades weaker than the source, since only improvement is the error', () => {
+    // Understating is not the failure mode §E.2.2 describes. Optimistic propagation is.
+    const finding: FindingDraft = {
+      ...BASE_FINDING,
+      sourceGrades: [{ chunkId: 'CHUNK_C3', reliability: 'E', credibility: 5 }],
+    };
+    expect(codes(validateFinding(finding, BASE_CTX))).toEqual([]);
+  });
+});
+
 describe('CH003 specificity trace (§B.9 step 5)', () => {
   it('is non-remediable — the specific is struck, not rephrased', () => {
     const finding: FindingDraft = {
@@ -271,6 +317,20 @@ describe('CH003 specificity trace (§B.9 step 5)', () => {
       statement: 'A 2% deviation was recorded on 20 April 2026.',
     };
     expect(codes(validateFinding(finding, BASE_CTX))).toEqual([]);
+  });
+
+  it('derives dates in the other direction too', () => {
+    // Technical prose writes dates both ways, and neither direction is invention. Here the
+    // field records the long form and the finding writes ISO.
+    const ctx: PersonaContext = {
+      ...BASE_CTX,
+      retrievedChunks: [
+        { ...CHUNKS[0]!, text: 'The cure deviation was recorded on 20 April 2026.' },
+      ],
+    };
+    const finding: FindingDraft = { ...BASE_FINDING, statement: 'Recorded on 2026-04-20.' };
+
+    expect(codes(validateFinding(finding, ctx))).toEqual([]);
   });
 
   it('honours a human override', () => {
@@ -309,6 +369,30 @@ describe('CH007 scope (§B.14)', () => {
 
     expect(violation.remediable).toBe(false);
     expect(violation.routeTo).toBe('supply_chain.vendor_intent');
+  });
+
+  it('accepts a finding declaring an inclusion the persona owns', () => {
+    const finding: FindingDraft = { ...BASE_FINDING, addressesInclusion: 'surface_preparation' };
+    expect(codes(validateFinding(finding, BASE_CTX))).toEqual([]);
+  });
+
+  it('rejects a finding declaring an inclusion the persona does not own', () => {
+    // Repairable and NOT routed, unlike the exclusion branch: the persona named a scope it
+    // does not hold, which is a mis-declaration to correct rather than a request to hand to
+    // another authority. Scope is declared rather than inferred from prose — see
+    // validate.ts for why matching registry terms against technical writing was rejected.
+    const finding: FindingDraft = { ...BASE_FINDING, addressesInclusion: 'beneficial_ownership' };
+    const violation = validateFinding(finding, BASE_CTX).find((v) => v.code === 'CH007_OUT_OF_SCOPE')!;
+
+    expect(violation.remediable).toBe(true);
+    expect(violation.routeTo).toBeUndefined();
+    expect(violation.detail).toContain('beneficial_ownership');
+  });
+
+  it('does not check declarations when the persona declares no inclusions', () => {
+    const ctx: PersonaContext = { ...BASE_CTX, scopeInclusions: [] };
+    const finding: FindingDraft = { ...BASE_FINDING, addressesInclusion: 'anything_at_all' };
+    expect(codes(validateFinding(finding, ctx))).toEqual([]);
   });
 });
 
@@ -396,6 +480,15 @@ describe('repair reducer', () => {
       kind: 'routed',
       routeTo: 'human:program_authority',
     });
+  });
+
+  it('does not count acceptance or a pending repair as rejection', () => {
+    // isRejected gates whether the finding enters the record. A finding still in repair has
+    // not been rejected, and treating it as such would discard work the persona is owed.
+    expect(isRejected({ kind: 'accepted' })).toBe(false);
+    expect(isRejected(nextRepairState([remediable], 0))).toBe(false);
+    expect(isRejected(nextRepairState([nonRemediable], 0))).toBe(true);
+    expect(isRejected(nextRepairState([routing], 0))).toBe(true);
   });
 
   it('never silently accepts a finding that has violations', () => {
