@@ -12,12 +12,12 @@
  */
 
 export class CanonicalJsonError extends Error {
-  constructor(
-    message: string,
-    readonly path: string,
-  ) {
+  readonly path: string;
+
+  constructor(message: string, path: string) {
     super(`${message} (at ${path === '' ? '<root>' : path})`);
     this.name = 'CanonicalJsonError';
+    this.path = path;
   }
 }
 

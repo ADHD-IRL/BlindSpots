@@ -39,7 +39,31 @@ importers:
         specifier: ^3.0.5
         version: 3.2.7(@types/node@22.20.1)
 
+  packages/cli:
+    dependencies:
+      '@mae/core':
+        specifier: workspace:*
+        version: link:../core
+      '@mae/fields':
+        specifier: workspace:*
+        version: link:../fields
+      '@mae/store':
+        specifier: workspace:*
+        version: link:../store
+
   packages/core: {}
+
+  packages/fields:
+    dependencies:
+      '@mae/core':
+        specifier: workspace:*
+        version: link:../core
+      '@mae/store':
+        specifier: workspace:*
+        version: link:../store
+      pg:
+        specifier: ^8.13.1
+        version: 8.23.0
 
   packages/store:
     dependencies:

@@ -1,0 +1,15 @@
+{
+  "name": "@mae/fields",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*"
+  },
+  "dependencies": {
+    "@mae/core": "workspace:*",
+    "@mae/store": "workspace:*",
+    "pg": "^8.13.1"
+  }
+}
