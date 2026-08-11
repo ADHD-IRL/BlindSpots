@@ -8,6 +8,7 @@ import {
   validateFinding,
 } from '@mae/core';
 import type { FindingDraft, ViolationCode } from '@mae/core';
+import { type Cassette, PROVENANCE_BY_ORIGIN } from '@mae/runtime';
 import type { PersistedPanel } from '@mae/store';
 
 export interface ScenarioFixture {
@@ -170,4 +171,48 @@ function resolveSelfCitation(
       personaId: c.personaId === 'SELF' ? personaId : c.personaId,
     })),
   };
+}
+
+/**
+ * Renders a cassette library for an operator.
+ *
+ * The column that matters is the provenance one. A cassette library is how a run happens
+ * without credentials, and the single thing an operator must not lose track of is that an
+ * `authored` response was written by a person — it is model output the way `fixtures/fields/`
+ * is curated expertise: neither.
+ */
+export function renderCassetteLibrary(dir: string, cassettes: readonly Cassette[]): string {
+  const lines: string[] = [];
+
+  lines.push(`${cassettes.length} cassette(s) in ${dir}`);
+  lines.push('');
+
+  const authored = cassettes.filter((c) => c.origin === 'authored');
+  for (const cassette of cassettes) {
+    lines.push(
+      `  ${cassette.request.purpose.padEnd(28)} ${cassette.key.slice(0, 12)}  ` +
+        `${cassette.origin.padEnd(8)} -> replays as ${PROVENANCE_BY_ORIGIN[cassette.origin]}`,
+    );
+    lines.push(
+      `    ${cassette.request.model}  stop=${cassette.response.stopReason}  ` +
+        `by ${cassette.capturedBy} at ${cassette.capturedAt}`,
+    );
+    if (cassette.note !== undefined) lines.push(`    note: ${cassette.note}`);
+  }
+
+  if (authored.length > 0) {
+    lines.push('');
+    lines.push(
+      `  ${authored.length} of these are AUTHORED. No model produced that text; a person ` +
+        'wrote it so',
+    );
+    lines.push(
+      '  the runtime could be exercised without credentials. Replaying them shows the',
+    );
+    lines.push(
+      '  machinery works, and shows nothing whatever about what a model would say.',
+    );
+  }
+
+  return lines.join('\n');
 }

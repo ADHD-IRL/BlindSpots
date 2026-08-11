@@ -9,6 +9,7 @@
   "dependencies": {
     "@mae/core": "workspace:*",
     "@mae/fields": "workspace:*",
+    "@mae/runtime": "workspace:*",
     "@mae/store": "workspace:*"
   }
 }

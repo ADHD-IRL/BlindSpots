@@ -7,6 +7,7 @@ const alias = {
   '@mae/core': r('./packages/core/src/index.ts'),
   '@mae/store': r('./packages/store/src/index.ts'),
   '@mae/fields': r('./packages/fields/src/index.ts'),
+  '@mae/runtime': r('./packages/runtime/src/index.ts'),
 };
 
 export default defineConfig({
@@ -38,6 +39,12 @@ export default defineConfig({
           name: 'fields',
           include: ['packages/fields/test/**/*.test.ts'],
         },
+      },
+      // The transport suite is pure too: cassettes replay from disk, and nothing in it
+      // opens a socket or reads a credential.
+      {
+        resolve: { alias },
+        test: { name: 'runtime', include: ['packages/runtime/test/**/*.test.ts'] },
       },
       {
         resolve: { alias },
