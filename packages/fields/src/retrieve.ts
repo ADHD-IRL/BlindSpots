@@ -1,5 +1,6 @@
 import {
   type Candidate,
+  type ContentClass,
   type Credibility,
   type GradedChunk,
   type RankedChunk,
@@ -27,11 +28,12 @@ interface ChunkRow {
   credibility: number;
   situation_tags: string[];
   reliability: string;
+  content_class: string;
   embedding: string | null;
 }
 
 const CHUNK_COLUMNS = `c.id, c.source_id, c.field_id, c.text, c.credibility, c.situation_tags,
-                       s.reliability, c.embedding::text AS embedding`;
+                       s.reliability, s.content_class, c.embedding::text AS embedding`;
 
 /**
  * Situational retrieval (Appendix A §A.12 step four).
@@ -114,6 +116,10 @@ function toGradedChunk(row: ChunkRow): GradedChunk {
     reliability: row.reliability as Reliability,
     credibility: row.credibility as Credibility,
     situationTags: row.situation_tags,
+    // Carried all the way to the persona. Charter rule CH012 caps any finding whose
+    // retrieval set includes synthetic material, so losing it here would silently remove
+    // the cap.
+    contentClass: row.content_class as ContentClass,
   };
 }
 

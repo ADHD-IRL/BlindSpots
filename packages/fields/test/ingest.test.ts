@@ -5,7 +5,7 @@ const valid: SourceInput = {
   fieldId: 'materials.metallurgy',
   uri: 'https://example.invalid/failure-analysis-2024.pdf',
   title: 'Failure analysis of a bonded joint',
-  grading: { reliability: 'B', gradedBy: 'human:curator' },
+  grading: { reliability: 'B', contentClass: 'curated', gradedBy: 'human:curator' },
   chunks: [
     {
       text: 'Disbond initiated at the bondline following a documented cure deviation.',

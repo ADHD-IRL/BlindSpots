@@ -22,6 +22,7 @@ const chunk = (id: string, tags: string[], overrides: Partial<GradedChunk> = {})
   reliability: 'B',
   credibility: 2,
   situationTags: tags,
+  contentClass: 'curated',
   ...overrides,
 });
 

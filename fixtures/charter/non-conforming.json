@@ -4,116 +4,169 @@
     {
       "name": "overconfident-on-low-validity",
       "why": "Appendix B §B.5.2: Assessed is permitted at high validity only.",
-      "context": { "archetype": "latent_physical", "status": "registered" },
+      "context": {
+        "archetype": "latent_physical",
+        "status": "registered"
+      },
       "finding": {
         "statement": "The bondline surface preparation is inadequate for the service environment.",
         "confidence": "assessed",
         "validityTier": "low",
         "basis": "field schema for bonded joint failure modes"
       },
-      "expectedCodes": ["CH001_CONFIDENCE_VALIDITY"]
+      "expectedCodes": [
+        "CH001_CONFIDENCE_VALIDITY"
+      ]
     },
     {
       "name": "likely-on-low-validity",
       "why": "Likely is permitted at high or moderate validity only.",
-      "context": { "archetype": "latent_physical", "status": "registered" },
+      "context": {
+        "archetype": "latent_physical",
+        "status": "registered"
+      },
       "finding": {
         "statement": "The bondline surface preparation is inadequate for the service environment.",
         "confidence": "likely",
         "validityTier": "low",
         "basis": "field schema"
       },
-      "expectedCodes": ["CH001_CONFIDENCE_VALIDITY"]
+      "expectedCodes": [
+        "CH001_CONFIDENCE_VALIDITY"
+      ]
     },
     {
       "name": "plausible-without-named-basis",
       "why": "§B.5.2 permits Plausible at any tier, but only with the basis named.",
-      "context": { "archetype": "latent_physical", "status": "registered" },
+      "context": {
+        "archetype": "latent_physical",
+        "status": "registered"
+      },
       "finding": {
         "statement": "The bondline surface preparation may be inadequate for the service environment.",
         "confidence": "plausible",
         "validityTier": "low",
         "basis": "   "
       },
-      "expectedCodes": ["CH001_CONFIDENCE_VALIDITY"]
+      "expectedCodes": [
+        "CH001_CONFIDENCE_VALIDITY"
+      ]
     },
     {
       "name": "attribution-above-cap-on-physical-evidence-alone",
       "why": "§C.2.5: attribution to deliberate action may not exceed Considered on physical evidence alone.",
-      "context": { "archetype": "latent_physical", "status": "registered" },
+      "context": {
+        "archetype": "latent_physical",
+        "status": "registered"
+      },
       "finding": {
         "statement": "The bondline anomaly pattern is deliberate, indicating tampering during surface preparation.",
         "confidence": "likely",
         "validityTier": "high",
         "basis": "anomaly pattern across accepted lots"
       },
-      "expectedCodes": ["CH002_ARCHETYPE_CAP"]
+      "expectedCodes": [
+        "CH002_ARCHETYPE_CAP"
+      ]
     },
     {
       "name": "attribution-corroborated-only-by-itself",
       "why": "§B.5.2 requires corroborating findings from OTHER personas. Self-citation supplies none.",
-      "context": { "archetype": "attributive_contested", "status": "registered" },
+      "context": {
+        "archetype": "attributive_contested",
+        "status": "registered"
+      },
       "finding": {
         "statement": "The vendor delivery deviation is deliberate and attributable to a state actor.",
         "confidence": "likely",
         "validityTier": "moderate",
         "basis": "vendor behaviour record",
-        "corroboratingFindings": [{ "findingId": "f-self", "personaId": "SELF" }]
+        "corroboratingFindings": [
+          {
+            "findingId": "f-self",
+            "personaId": "SELF"
+          }
+        ]
       },
-      "expectedCodes": ["CH002_ARCHETYPE_CAP"]
+      "expectedCodes": [
+        "CH002_ARCHETYPE_CAP"
+      ]
     },
     {
       "name": "prediction-above-cap",
       "why": "§B.5.2: Anticipatory-Unvalidated cannot exceed Plausible on any predictive claim.",
-      "context": { "archetype": "anticipatory_unvalidated", "status": "registered" },
+      "context": {
+        "archetype": "anticipatory_unvalidated",
+        "status": "registered"
+      },
       "finding": {
         "statement": "The supplier will lose its second source within the coming programme year.",
         "confidence": "likely",
         "validityTier": "high",
         "basis": "market structure analysis"
       },
-      "expectedCodes": ["CH002_ARCHETYPE_CAP"]
+      "expectedCodes": [
+        "CH002_ARCHETYPE_CAP"
+      ]
     },
     {
       "name": "detection-claim-without-sampling-statistics",
       "why": "§C.2.6: 'testing found nothing' is prohibited without sampling rate and false negative rate.",
-      "context": { "archetype": "latent_physical", "status": "registered" },
+      "context": {
+        "archetype": "latent_physical",
+        "status": "registered"
+      },
       "finding": {
         "statement": "We tested the lot and found no evidence of contamination in the bondline.",
         "confidence": "considered",
         "validityTier": "high",
         "basis": "lot acceptance record"
       },
-      "expectedCodes": ["CH004_DETECTION_STATS_MISSING"]
+      "expectedCodes": [
+        "CH004_DETECTION_STATS_MISSING"
+      ]
     },
     {
       "name": "indicator-claim-without-base-rate",
       "why": "§C.3.1: base rates are unfavourable, and the finding must state the indicator's positive predictive value.",
-      "context": { "archetype": "attributive_contested", "status": "registered" },
+      "context": {
+        "archetype": "attributive_contested",
+        "status": "registered"
+      },
       "finding": {
         "statement": "The access anomaly indicator is present for several privileged roles.",
         "confidence": "considered",
         "validityTier": "low",
         "basis": "access log summary"
       },
-      "expectedCodes": ["CH008_BASE_RATE_MISSING"]
+      "expectedCodes": [
+        "CH008_BASE_RATE_MISSING"
+      ]
     },
     {
       "name": "provisional-persona-claiming-likely",
       "why": "§C.5.2: provisional personas are capped at Plausible.",
-      "context": { "archetype": "latent_physical", "status": "provisional" },
+      "context": {
+        "archetype": "latent_physical",
+        "status": "provisional"
+      },
       "finding": {
         "statement": "The bondline surface preparation is inadequate for the service environment.",
         "confidence": "likely",
         "validityTier": "high",
         "basis": "uncurated field"
       },
-      "expectedCodes": ["CH006_STATUS_CAP"]
+      "expectedCodes": [
+        "CH006_STATUS_CAP"
+      ]
     },
     {
       "name": "provisional-persona-anchoring-a-chain",
       "why": "§C.5.2: may contribute conditions, may not anchor a chain.",
-      "context": { "archetype": "latent_physical", "status": "provisional" },
+      "context": {
+        "archetype": "latent_physical",
+        "status": "provisional"
+      },
       "finding": {
         "statement": "The bondline surface preparation is inadequate for the service environment.",
         "confidence": "plausible",
@@ -121,80 +174,139 @@
         "basis": "uncurated field",
         "anchorsChain": true
       },
-      "expectedCodes": ["CH006_STATUS_CAP"]
+      "expectedCodes": [
+        "CH006_STATUS_CAP"
+      ]
     },
     {
       "name": "curated-persona-claiming-assessed",
       "why": "§C.5.3: curated personas are capped at Likely until validated against outcomes.",
-      "context": { "archetype": "latent_physical", "status": "curated" },
+      "context": {
+        "archetype": "latent_physical",
+        "status": "curated"
+      },
       "finding": {
         "statement": "The bondline surface preparation is inadequate for the service environment.",
         "confidence": "assessed",
         "validityTier": "high",
         "basis": "curated field, shadow run"
       },
-      "expectedCodes": ["CH006_STATUS_CAP"]
+      "expectedCodes": [
+        "CH006_STATUS_CAP"
+      ]
     },
     {
       "name": "grade-inflation",
       "why": "§E.2.2: a finding synthesising three C3 inputs is not thereby B2.",
-      "context": { "archetype": "latent_physical", "status": "registered" },
+      "context": {
+        "archetype": "latent_physical",
+        "status": "registered"
+      },
       "finding": {
         "statement": "The bondline surface preparation is inadequate for the service environment.",
         "confidence": "considered",
         "validityTier": "moderate",
         "basis": "field material",
-        "sourceGrades": [{ "chunkId": "CHUNK_C3", "reliability": "B", "credibility": 2 }]
+        "sourceGrades": [
+          {
+            "chunkId": "CHUNK_C3",
+            "reliability": "B",
+            "credibility": 2
+          }
+        ]
       },
-      "expectedCodes": ["CH009_GRADE_INFLATION"]
+      "expectedCodes": [
+        "CH009_GRADE_INFLATION"
+      ]
     },
     {
       "name": "named-individual-determination",
       "why": "§C.3.4: no determination about named individuals, terminating routing. The name is also an untraceable specific, and the statement rests on a behavioural indicator with no base rate. All three rules firing independently is correct: the layers do not mask one another.",
-      "context": { "archetype": "attributive_contested", "status": "registered", "domainId": "insider_threat" },
+      "context": {
+        "archetype": "attributive_contested",
+        "status": "registered",
+        "domainId": "insider_threat"
+      },
       "finding": {
         "statement": "Engineer Marcus Reyes exhibits the access anomaly indicator and should be reviewed.",
         "confidence": "considered",
         "validityTier": "low",
         "basis": "access log"
       },
-      "expectedCodes": ["CH010_NAMED_INDIVIDUAL", "CH003_UNTRACEABLE_SPECIFIC", "CH008_BASE_RATE_MISSING"]
+      "expectedCodes": [
+        "CH010_NAMED_INDIVIDUAL",
+        "CH003_UNTRACEABLE_SPECIFIC",
+        "CH008_BASE_RATE_MISSING"
+      ]
     },
     {
       "name": "prohibited-mechanism-under-defensive-framing",
       "why": "§C.2.4: does not become permissible by being framed as detection guidance.",
-      "context": { "archetype": "latent_physical", "status": "registered" },
+      "context": {
+        "archetype": "latent_physical",
+        "status": "registered"
+      },
       "finding": {
         "statement": "For detection purposes, the specific perturbation to introduce is a trace dopant selected to degrade long term aging.",
         "confidence": "considered",
         "validityTier": "low",
         "basis": "defensive framing"
       },
-      "expectedCodes": ["CH011_PROHIBITED_OUTPUT"]
+      "expectedCodes": [
+        "CH011_PROHIBITED_OUTPUT"
+      ]
     },
     {
       "name": "untraceable-specific",
       "why": "§B.9 step 5: every identifier, value, version and date traced to a bound field.",
-      "context": { "archetype": "latent_physical", "status": "registered" },
+      "context": {
+        "archetype": "latent_physical",
+        "status": "registered"
+      },
       "finding": {
         "statement": "Lot 7743B shows a 4.2 percent deviation against the AMS-9915 baseline.",
         "confidence": "considered",
         "validityTier": "moderate",
         "basis": "lot records"
       },
-      "expectedCodes": ["CH003_UNTRACEABLE_SPECIFIC"]
+      "expectedCodes": [
+        "CH003_UNTRACEABLE_SPECIFIC"
+      ]
     },
     {
       "name": "out-of-scope-statement",
       "why": "§B.14: out-of-scope tasking is refused and logged, routed to the named target.",
-      "context": { "archetype": "latent_physical", "status": "registered" },
+      "context": {
+        "archetype": "latent_physical",
+        "status": "registered"
+      },
       "finding": {
         "statement": "The vendor ownership structure indicates control by a foreign parent.",
         "confidence": "considered",
         "validityTier": "low",
         "basis": "corporate filings"
       },
-      "expectedCodes": ["CH007_OUT_OF_SCOPE"]
+      "expectedCodes": [
+        "CH007_OUT_OF_SCOPE"
+      ]
+    },
+    {
+      "name": "synthetic-basis-undeclared",
+      "why": "Synthetic content is legitimate for exercising the engine only while the marking is impossible to lose. CH012 requires the declaration and caps confidence at Considered.",
+      "context": {
+        "archetype": "latent_physical",
+        "status": "registered",
+        "syntheticRetrieval": true
+      },
+      "finding": {
+        "statement": "The bondline surface preparation is inadequate for the service environment.",
+        "confidence": "plausible",
+        "validityTier": "low",
+        "basis": "synthetic field material"
+      },
+      "expectedCodes": [
+        "CH012_SYNTHETIC_BASIS"
+      ]
     }
   ]
 }

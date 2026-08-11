@@ -40,8 +40,78 @@ export function validateFinding(
     ...checkBaseRate(finding, ctx),
     ...checkGapDiscipline(finding, ctx),
     ...checkGradeInflation(finding, ctx),
+    ...checkSyntheticBasis(finding, ctx),
     ...checkSpecificity(finding, ctx),
   ];
+}
+
+// -- CH012 -------------------------------------------------------------------------------
+
+/**
+ * Findings that could rest on synthetic content are capped and marked.
+ *
+ * Real curation is expert months (§C.6.4) and none has happened yet, so the engine is
+ * exercised on content invented for the purpose. That is legitimate — and it is only
+ * legitimate while the distinction is impossible to lose.
+ *
+ * Two consequences, both enforced here rather than trusted to a convention:
+ *
+ *  - **Capped at `considered`.** §B.5.2 defines that term as "raised for awareness,
+ *    insufficient basis", which is exactly what a finding derived from invented material is.
+ *    Anything above it would be a claim about the world backed by something that was never
+ *    about the world.
+ *  - **Marked, and the marking is required rather than inferred.** The persona must declare
+ *    `syntheticBasis`, following the precedent in §C.5.2 where a provisional persona's
+ *    output carries `PROVISIONAL` through to the final package.
+ *
+ * The test is the RETRIEVAL SET, not the cited chunks — fail closed, like the claim
+ * classifiers. If synthetic material was in front of the persona there is no way to
+ * demonstrate it went unused, so the operational rule is not to mix classes within a field.
+ */
+function checkSyntheticBasis(f: FindingDraft, ctx: PersonaContext): CharterViolation[] {
+  const synthetic = ctx.retrievedChunks.filter((c) => c.contentClass === 'synthetic');
+  if (synthetic.length === 0) {
+    // The inverse also matters: a finding must not claim a caveat it has not earned, or the
+    // marking stops meaning anything where it does appear.
+    if (f.syntheticBasis === true) {
+      return [
+        {
+          code: 'CH012_SYNTHETIC_BASIS',
+          detail:
+            'Finding declares a synthetic basis, but its retrieval set contains no synthetic ' +
+            'content. A marking applied where it does not belong devalues it where it does.',
+          remediable: true,
+        },
+      ];
+    }
+    return [];
+  }
+
+  const violations: CharterViolation[] = [];
+
+  if (f.syntheticBasis !== true) {
+    violations.push({
+      code: 'CH012_SYNTHETIC_BASIS',
+      detail:
+        `Retrieval set contains ${synthetic.length} synthetic chunk(s), so this finding must ` +
+        `declare syntheticBasis. The marking carries to the output package; a caveat dropped ` +
+        `between the evidence and the report is not a caveat.`,
+      remediable: true,
+    });
+  }
+
+  if (CONFIDENCE_RANK[f.confidence] > CONFIDENCE_RANK.considered) {
+    violations.push({
+      code: 'CH012_SYNTHETIC_BASIS',
+      detail:
+        `A finding that could rest on synthetic content cannot exceed "considered"; this one ` +
+        `claims "${f.confidence}". Synthetic material is not low-grade evidence, it is not ` +
+        `evidence — which is why it carries F/6, "cannot be judged" on both axes.`,
+      remediable: true,
+    });
+  }
+
+  return violations;
 }
 
 // -- CH011 -------------------------------------------------------------------------------

@@ -28,6 +28,7 @@ export const VIOLATION_CODES = [
   'CH009_GRADE_INFLATION',
   'CH010_NAMED_INDIVIDUAL',
   'CH011_PROHIBITED_OUTPUT',
+  'CH012_SYNTHETIC_BASIS',
 ] as const;
 
 export type ViolationCode = (typeof VIOLATION_CODES)[number];
@@ -97,6 +98,15 @@ export interface FindingDraft {
    * the implementation plan), not because the rule is optional.
    */
   readonly specificityOverrides?: readonly string[];
+  /**
+   * Declares that this finding could have drawn on synthetic content.
+   *
+   * Required — not inferred and not optional — whenever the persona's retrieval set contains
+   * synthetic material. The marking travels to the output package the way §C.5.2 carries
+   * `PROVISIONAL` there: a caveat dropped between the evidence and the report is not a
+   * caveat.
+   */
+  readonly syntheticBasis?: boolean;
 }
 
 export interface PersonaContext {

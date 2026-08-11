@@ -37,6 +37,20 @@ export const CREDIBILITY_MEANING: Readonly<Record<Credibility, string>> = {
 };
 
 /**
+ * Whether a chunk is curated expertise or content invented to exercise the engine.
+ *
+ * Real curation is expert months (§C.6.4). Until it exists, synthetic content lets the
+ * machinery be run end to end — but only if the distinction is impossible to lose. It rides
+ * on every chunk, and charter rule CH012 caps any finding that could have drawn on it.
+ *
+ * This is not a quality grade. A synthetic chunk is not low-reliability material; it is not
+ * evidence at all, which is why the Admiralty codes it carries are F and 6 — "cannot be
+ * judged" on both axes.
+ */
+export const CONTENT_CLASSES = ['curated', 'synthetic'] as const;
+export type ContentClass = (typeof CONTENT_CLASSES)[number];
+
+/**
  * A retrieved chunk with both grades attached.
  *
  * The grades travel with the chunk all the way to the finding. "A finding derived from B2
@@ -53,6 +67,7 @@ export interface GradedChunk {
   readonly reliability: Reliability;
   readonly credibility: Credibility;
   readonly situationTags: readonly string[];
+  readonly contentClass: ContentClass;
 }
 
 /**

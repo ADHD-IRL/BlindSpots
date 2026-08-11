@@ -1,0 +1,83 @@
+{
+  "$warning": "SYNTHETIC. Every passage below was invented to exercise the engine. None of it is curated expertise and none of it should be relied on for any statement about the world. See fixtures/fields/README.md. The enforcement is in the schema, the ingest path and charter rule CH012 — not in this comment.",
+  "$scenario": "fixtures/scenarios/composite-qualification.json — covers the domains that scenario convenes at full depth (Appendix B §B.2.5, Scenario 1).",
+  "contentClass": "synthetic",
+  "gradedBy": "system:synthetic_fixture",
+  "sources": [
+    {
+      "fieldId": "materials.polymers_adhesives.synthetic",
+      "uri": "synthetic://composite-qualification/polymers_adhesives",
+      "title": "SYNTHETIC — bonded joint surface preparation",
+      "chunks": [
+        {
+          "text": "Surface preparation of a bonded joint controls the durability of the interface rather than its initial strength. A joint that passes proof loading at build can still lose interfacial adhesion over service life when preparation was inadequate, because the failure mode is progressive and environmentally driven rather than a static overload.",
+          "situationTags": ["surface_preparation", "disbond", "long_term_aging", "bonded_primary_structure"]
+        },
+        {
+          "text": "Peel ply residue and incomplete solvent removal are two preparation defects that are difficult to distinguish after cure. Both reduce interfacial durability, neither is detectable by the ultrasonic methods commonly applied to bondlines, and the discriminating evidence is preparation-stage process records rather than post-cure inspection.",
+          "situationTags": ["surface_preparation", "discriminating_evidence", "detection_gap", "cure_records"]
+        },
+        {
+          "text": "Where preparation is performed by a supplier and the process records are not contractually deliverable, the durability of the interface cannot be verified by the programme by any downstream means. The absent record is the finding.",
+          "situationTags": ["evidence_access", "supplier_held_records", "surface_preparation", "gap_declaration"]
+        }
+      ]
+    },
+    {
+      "fieldId": "analytical_detection_design.synthetic",
+      "uri": "synthetic://composite-qualification/analytical_detection_design",
+      "title": "SYNTHETIC — sampling and detection sensitivity",
+      "chunks": [
+        {
+          "text": "A statement that inspection found nothing carries no information without the sampling rate and the false negative rate for the defect class in question. The informative quantity is the probability of detecting contamination present at a given rate, which depends on how many units were examined out of how many, and on the method's sensitivity for that specific defect.",
+          "situationTags": ["sampling_plan_limits", "detection_sensitivity", "false_negative_rate", "lot_acceptance"]
+        },
+        {
+          "text": "Acceptance sampling plans are designed against process-level quality problems, where defective fractions are high enough to be caught by a modest sample. They are poorly matched to deliberate low-rate insertion: material salted at one or two percent produces a fleet-wide reliability problem while sitting below the detection threshold of any plan a programme realistically runs.",
+          "situationTags": ["sampling_plan_limits", "low_rate_insertion", "detection_gap", "adversarial_insertion"]
+        },
+        {
+          "text": "Where a material is genuinely critical and the provenance chain genuinely long, additional sampling is usually the wrong response. Shortening the chain, testing at receipt rather than trusting certificates, or qualifying a second source all address the exposure that sampling cannot.",
+          "situationTags": ["sampling_plan_limits", "mitigation_options", "long_provenance_chain"]
+        }
+      ]
+    },
+    {
+      "fieldId": "supply_chain.provenance.synthetic",
+      "uri": "synthetic://composite-qualification/supply_chain_provenance",
+      "title": "SYNTHETIC — certificate integrity and custody",
+      "chunks": [
+        {
+          "text": "A certificate of conformance attests that a supplier asserts conformance. It is documentary evidence of an assertion, not of the property asserted, and the distinction matters most exactly where the property cannot be verified downstream.",
+          "situationTags": ["certificate_dependent_acceptance", "certificate_interpretation", "evidence_access"]
+        },
+        {
+          "text": "Each custody transfer in a provenance chain is a point at which the documentary record and the physical material can diverge without either becoming internally inconsistent. Chains with several transfers, particularly across jurisdictions where audit rights are not held, accumulate exposure that no single document reveals.",
+          "situationTags": ["custody_transfers", "long_provenance_chain", "foreign_jurisdiction_supplier", "certificate_interpretation"]
+        }
+      ]
+    },
+    {
+      "fieldId": "logistics_storage.synthetic",
+      "uri": "synthetic://composite-qualification/logistics_storage",
+      "title": "SYNTHETIC — storage and shelf life",
+      "chunks": [
+        {
+          "text": "Out-of-freezer time for a shelf-life-limited adhesive film is cumulative across every handling event, and the record is typically maintained by whoever last held the material. Excursions consume life against a limit that is not visible in the material itself and are frequently reconstructed rather than measured.",
+          "situationTags": ["shelf_life_sensitive", "cold_chain", "supplier_held_records", "handling_damage"]
+        }
+      ]
+    },
+    {
+      "fieldId": "structures.synthetic",
+      "uri": "synthetic://composite-qualification/structures",
+      "title": "SYNTHETIC — load path and damage tolerance",
+      "chunks": [
+        {
+          "text": "In a bonded primary structure the bondline is part of the load path rather than a secondary attachment, so an interfacial degradation mechanism is a structural concern rather than a quality one. Damage tolerance substantiation that assumes an intact bondline does not bound the case where the interface degrades in service.",
+          "situationTags": ["bonded_primary_structure", "load_paths", "damage_tolerance", "long_term_aging"]
+        }
+      ]
+    }
+  ]
+}

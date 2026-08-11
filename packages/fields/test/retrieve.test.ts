@@ -18,7 +18,7 @@ describe.skipIf(!HAS_DB)('retrieve (database)', () => {
     const source: SourceInput = {
       fieldId,
       uri: 'https://example.invalid/lot-acceptance.pdf',
-      grading: { reliability: 'B', gradedBy: 'human:curator' },
+      grading: { reliability: 'B', contentClass: 'curated', gradedBy: 'human:curator' },
       chunks: [
         {
           text: 'Trace constituent shift below specification limits still altered long term aging behaviour.',
@@ -36,7 +36,7 @@ describe.skipIf(!HAS_DB)('retrieve (database)', () => {
     const lowGrade: SourceInput = {
       fieldId,
       uri: 'https://example.invalid/practitioner-blog',
-      grading: { reliability: 'E', gradedBy: 'human:curator' },
+      grading: { reliability: 'E', contentClass: 'curated', gradedBy: 'human:curator' },
       chunks: [
         {
           text: 'Anecdotal account of a lot variation with no analysis.',
@@ -115,7 +115,7 @@ describe.skipIf(!HAS_DB)('retrieve (database)', () => {
         {
           fieldId: bigField,
           uri: 'https://example.invalid/bulk-filler',
-          grading: { reliability: 'C', gradedBy: 'human:curator' },
+          grading: { reliability: 'C', contentClass: 'curated', gradedBy: 'human:curator' },
           chunks: Array.from({ length: FILLER }, (_, i) => ({
             text: `Unrelated background note ${i}.`,
             credibility: 4 as const,
@@ -131,7 +131,7 @@ describe.skipIf(!HAS_DB)('retrieve (database)', () => {
         {
           fieldId: bigField,
           uri: 'https://example.invalid/the-one-that-matters',
-          grading: { reliability: 'A', gradedBy: 'human:curator' },
+          grading: { reliability: 'A', contentClass: 'curated', gradedBy: 'human:curator' },
           chunks: [
             {
               text: 'Trace constituent shift altered long term aging in an unexpected lot variation.',
@@ -183,7 +183,7 @@ describe.skipIf(!HAS_DB)('retrieve (database)', () => {
     const bad: SourceInput = {
       fieldId,
       uri: 'https://example.invalid/broken',
-      grading: { reliability: 'C', gradedBy: 'human:curator' },
+      grading: { reliability: 'C', contentClass: 'curated', gradedBy: 'human:curator' },
       chunks: [
         { text: 'fine', credibility: 3, situationTags: ['ok'] },
         { text: 'bad', credibility: 99 as never, situationTags: ['ok'] },

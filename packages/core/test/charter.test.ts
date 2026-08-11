@@ -32,6 +32,7 @@ const CHUNKS: GradedChunk[] = [
     reliability: 'C',
     credibility: 3,
     situationTags: ['surface_preparation', 'disbond'],
+    contentClass: 'curated',
   },
 ];
 
@@ -65,7 +66,14 @@ const codes = (violations: CharterViolation[]): ViolationCode[] =>
 interface FixtureCase {
   readonly name: string;
   readonly why: string;
-  readonly context: Partial<PersonaContext>;
+  readonly context: Partial<PersonaContext> & {
+    /**
+     * Placeholder, resolved below. Writing a whole synthetic chunk set into the corpus file
+     * would bury the case being made under boilerplate, and the same reasoning applies as to
+     * the SELF placeholder: the fixture states the condition, the harness builds it.
+     */
+    readonly syntheticRetrieval?: boolean;
+  };
   readonly finding: Partial<FindingDraft>;
   readonly expectedCodes: ViolationCode[];
 }
@@ -81,7 +89,14 @@ const CORPUS: FixtureCase[] = (
 
 describe('adversarial corpus (fixtures/charter/non-conforming.json)', () => {
   it.each(CORPUS.map((c) => [c.name, c] as const))('rejects %s', (_name, testCase) => {
-    const ctx: PersonaContext = { ...BASE_CTX, ...testCase.context };
+    const { syntheticRetrieval, ...contextOverrides } = testCase.context;
+    const ctx: PersonaContext = {
+      ...BASE_CTX,
+      ...contextOverrides,
+      ...(syntheticRetrieval === true
+        ? { retrievedChunks: CHUNKS.map((c) => ({ ...c, contentClass: 'synthetic' as const })) }
+        : {}),
+    };
     const finding: FindingDraft = {
       ...BASE_FINDING,
       ...testCase.finding,
@@ -292,6 +307,68 @@ describe('CH009 grade discipline (§E.2.2)', () => {
       sourceGrades: [{ chunkId: 'CHUNK_C3', reliability: 'E', credibility: 5 }],
     };
     expect(codes(validateFinding(finding, BASE_CTX))).toEqual([]);
+  });
+});
+
+describe('CH012 synthetic basis', () => {
+  const SYNTHETIC_CTX: PersonaContext = {
+    ...BASE_CTX,
+    retrievedChunks: [{ ...CHUNKS[0]!, contentClass: 'synthetic' }],
+  };
+
+  it('requires the finding to declare it', () => {
+    // The marking carries to the output package. A caveat dropped between the evidence and
+    // the report is not a caveat.
+    expect(codes(validateFinding(BASE_FINDING, SYNTHETIC_CTX))).toEqual(['CH012_SYNTHETIC_BASIS']);
+  });
+
+  it('caps confidence at considered even when declared', () => {
+    // §B.5.2: "raised for awareness, insufficient basis" is exactly what a finding derived
+    // from invented material is.
+    const finding: FindingDraft = {
+      ...BASE_FINDING,
+      confidence: 'plausible',
+      syntheticBasis: true,
+    };
+    const violations = validateFinding(finding, SYNTHETIC_CTX);
+
+    expect(codes(violations)).toEqual(['CH012_SYNTHETIC_BASIS']);
+    expect(violations[0]!.detail).toContain('cannot exceed "considered"');
+  });
+
+  it('accepts a declared, capped finding', () => {
+    const finding: FindingDraft = { ...BASE_FINDING, syntheticBasis: true };
+    expect(codes(validateFinding(finding, SYNTHETIC_CTX))).toEqual([]);
+  });
+
+  it('accepts a gap declaration over synthetic content', () => {
+    // A gap names a record the programme does not hold. That claim is about the programme,
+    // not about the world, so synthetic material cannot corrupt it.
+    const finding: FindingDraft = {
+      ...BASE_FINDING,
+      confidence: 'gap',
+      syntheticBasis: true,
+    };
+    expect(codes(validateFinding(finding, SYNTHETIC_CTX))).toEqual([]);
+  });
+
+  it('fires on a mixed retrieval set, because unused cannot be demonstrated', () => {
+    // Fail closed, like the claim classifiers. If synthetic material was in front of the
+    // persona there is no way to show it went unused — hence the rule not to mix classes.
+    const mixed: PersonaContext = {
+      ...BASE_CTX,
+      retrievedChunks: [CHUNKS[0]!, { ...CHUNKS[0]!, id: 'CHUNK_SYN', contentClass: 'synthetic' }],
+    };
+    expect(codes(validateFinding(BASE_FINDING, mixed))).toEqual(['CH012_SYNTHETIC_BASIS']);
+  });
+
+  it('rejects a marking the finding has not earned', () => {
+    // A caveat applied where it does not belong devalues it where it does.
+    const finding: FindingDraft = { ...BASE_FINDING, syntheticBasis: true };
+    const violations = validateFinding(finding, BASE_CTX);
+
+    expect(codes(violations)).toEqual(['CH012_SYNTHETIC_BASIS']);
+    expect(violations[0]!.detail).toContain('devalues it where it does');
   });
 });
 
