@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Cassette } from '../src/cassette/types.ts';
 import { cassetteKey } from '../src/model/key.ts';
 import {
+  IncompleteResponseError,
   ModelRefusalError,
   type ModelRequest,
   type ModelResponse,
@@ -165,6 +166,16 @@ describe('assertUsable', () => {
     'throws on %s, because a truncated finding loses its caveats last',
     (stopReason) => {
       expect(() => assertUsable(response({ stopReason }))).toThrow(TruncatedResponseError);
+    },
+  );
+
+  it.each(['pause_turn', 'tool_use', 'stop_sequence'] as const)(
+    'throws on %s, because the turn did not end',
+    (stopReason) => {
+      // These arrive WITH text, which is what makes them dangerous: a fragment the model
+      // meant to continue reads exactly like a finding. An allowlist rather than a denylist,
+      // so a stop reason added to the API later fails closed instead of passing by default.
+      expect(() => assertUsable(response({ stopReason }))).toThrow(IncompleteResponseError);
     },
   );
 

@@ -132,3 +132,67 @@ describe('what recording refuses to do', () => {
     await expect(transport.complete(request)).rejects.toThrow(/Only a live model call/);
   });
 });
+
+describe('when the sink fails', () => {
+  it('still returns the response, because the call already happened and was paid for', async () => {
+    // The only place in this package where a failure must not propagate. A read-only
+    // directory is no reason to destroy a completed model response on its way back.
+    const errors: Error[] = [];
+    const transport = new RecordingTransport(
+      new StubTransport(),
+      () => {
+        throw new Error('EACCES: permission denied');
+      },
+      {
+        capturedBy: 'human:test_operator',
+        now: () => '2026-08-11T00:00:00.000Z',
+        onCaptureError: (error) => errors.push(error),
+      },
+    );
+
+    const response = await transport.complete(request);
+    expect(response.text).toBe('a finding');
+    expect(response.provenance).toBe('live');
+    expect(errors.map((e) => e.message)).toEqual(['EACCES: permission denied']);
+  });
+
+  it('reports the failure loudly rather than swallowing it', async () => {
+    // Not recorded means a later replay of this request misses, which the operator has to
+    // know at the time rather than discover as an unexplained miss weeks later.
+    const seen: string[] = [];
+    const original = console.error;
+    console.error = (msg: string) => seen.push(msg);
+    try {
+      const transport = new RecordingTransport(
+        new StubTransport(),
+        () => {
+          throw new Error('ENOSPC: no space left on device');
+        },
+        { capturedBy: 'human:test_operator', now: () => '2026-08-11T00:00:00.000Z' },
+      );
+      await transport.complete(request);
+    } finally {
+      console.error = original;
+    }
+
+    expect(seen.join('\n')).toMatch(/ENOSPC/);
+    expect(seen.join('\n')).toMatch(/is being returned. It is NOT recorded/);
+  });
+
+  it('hands the handler the cassette that could not be written', async () => {
+    const captured: string[] = [];
+    const transport = new RecordingTransport(
+      new StubTransport(),
+      () => {
+        throw new Error('disk on fire');
+      },
+      {
+        capturedBy: 'human:test_operator',
+        now: () => '2026-08-11T00:00:00.000Z',
+        onCaptureError: (_error, cassette) => captured.push(cassette.request.purpose),
+      },
+    );
+    await transport.complete(request);
+    expect(captured).toEqual(['phase1_finding']);
+  });
+});

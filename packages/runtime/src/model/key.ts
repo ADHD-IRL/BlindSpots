@@ -1,6 +1,11 @@
 import { createHash } from 'node:crypto';
 import { canonicalJson } from '@mae/core';
-import type { CanonicalObject, ModelRequest, ResolvedModelRequest } from './types.ts';
+import {
+  EFFORT_LEVELS,
+  type CanonicalObject,
+  type ModelRequest,
+  type ResolvedModelRequest,
+} from './types.ts';
 
 /**
  * Defaults, applied in exactly one place.
@@ -23,16 +28,48 @@ export const DEFAULT_EFFORT = 'high';
  * first for no reason a reader could ever find.
  */
 export function resolveRequest(request: ModelRequest): ResolvedModelRequest {
+  const thinking = request.thinking ?? DEFAULT_THINKING;
+  const effort = request.effort ?? DEFAULT_EFFORT;
+
+  // Checked here rather than only at the type level, because requests also arrive from
+  // cassette files, which are JSON and can say anything. This is the single choke point both
+  // the hash and the API call pass through, so validating here closes both at once. It
+  // matters most for `thinking`: the transport maps it with a two-way branch, so an
+  // unrecognised value would silently become `disabled` — a request that quietly stops
+  // asking for reasoning and replays forever as though it never had.
+  if (thinking !== 'adaptive' && thinking !== 'disabled') {
+    throw new InvalidModelRequestError('thinking', thinking, ['adaptive', 'disabled']);
+  }
+  if (!EFFORT_SET.has(effort)) {
+    throw new InvalidModelRequestError('effort', effort, [...EFFORT_LEVELS]);
+  }
+
   return {
     purpose: request.purpose,
     model: request.model,
     maxTokens: request.maxTokens,
     system: request.system,
     messages: request.messages.map((m) => ({ role: m.role, content: m.content })),
-    thinking: request.thinking ?? DEFAULT_THINKING,
-    effort: request.effort ?? DEFAULT_EFFORT,
+    thinking,
+    effort,
     outputSchema: request.outputSchema ?? null,
   };
+}
+
+const EFFORT_SET: ReadonlySet<string> = new Set(EFFORT_LEVELS);
+
+export class InvalidModelRequestError extends Error {
+  readonly field: string;
+
+  constructor(field: string, value: unknown, permitted: readonly string[]) {
+    super(
+      `Model request field "${field}" is ${JSON.stringify(value)}; permitted values are ` +
+        `${permitted.join(', ')}. An unrecognised value would be mapped to a default and ` +
+        'sent as a request nobody wrote.',
+    );
+    this.name = 'InvalidModelRequestError';
+    this.field = field;
+  }
 }
 
 /**

@@ -56,9 +56,20 @@ export default tseslint.config(
               message: 'packages/core must not perform I/O. Only node:crypto is permitted.',
             },
             {
-              group: ['@mae/store', '@mae/store/*', '@mae/fields', '@mae/fields/*'],
+              group: [
+                '@mae/store',
+                '@mae/store/*',
+                '@mae/fields',
+                '@mae/fields/*',
+                // Added with packages/runtime. Core reaching the model seam would be the
+                // worst version of this violation: the charter validator exists to sit
+                // between the model and the record, and it cannot do that from behind one.
+                '@mae/runtime',
+                '@mae/runtime/*',
+              ],
               message:
-                'packages/core must not depend on store or fields. Dependencies point inward.',
+                'packages/core must not depend on store, fields or runtime. Dependencies ' +
+                'point inward, and core must not be able to call a model.',
             },
           ],
         },

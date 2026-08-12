@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { cassetteKey, resolveRequest } from '../src/model/key.ts';
-import type { ModelRequest } from '../src/model/types.ts';
+import { InvalidModelRequestError, cassetteKey, resolveRequest } from '../src/model/key.ts';
+import { EFFORT_LEVELS, type ModelRequest } from '../src/model/types.ts';
 
 const base: ModelRequest = {
   purpose: 'phase1_finding',
@@ -60,5 +60,34 @@ describe('the cassette key', () => {
     // recordings become unreplayable for a reason invisible in the prompt.
     const withExtra = { ...base, requestedAt: '2026-08-11T00:00:00.000Z' } as ModelRequest;
     expect(cassetteKey(withExtra)).toBe(cassetteKey(base));
+  });
+});
+
+describe('request validation at the choke point', () => {
+  // Both the hash and the API call go through resolveRequest, so validating there closes
+  // both at once. It matters because requests also arrive from cassette files, which are
+  // JSON and can say anything at all.
+  it.each([
+    ['thinking', { thinking: 'banana' }],
+    ['effort', { effort: 'insane' }],
+  ])('rejects an unrecognised %s rather than defaulting it', (field, patch) => {
+    const bad = { ...base, ...patch } as ModelRequest;
+    expect(() => resolveRequest(bad)).toThrow(InvalidModelRequestError);
+    expect(() => resolveRequest(bad)).toThrow(new RegExp(`"${field}"`));
+  });
+
+  it('rejects it at hashing time too, so a bad request cannot even be keyed', () => {
+    // Without this, `thinking: "banana"` would hash fine and then be mapped to `disabled` by
+    // the transport's two-way branch — a request that quietly stopped asking for reasoning
+    // and replays that way forever.
+    expect(() => cassetteKey({ ...base, thinking: 'banana' } as unknown as ModelRequest)).toThrow(
+      InvalidModelRequestError,
+    );
+  });
+
+  it('accepts every documented effort level', () => {
+    for (const effort of EFFORT_LEVELS) {
+      expect(resolveRequest({ ...base, effort }).effort).toBe(effort);
+    }
   });
 });

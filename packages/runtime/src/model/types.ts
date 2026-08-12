@@ -136,22 +136,32 @@ export interface ModelResponse extends RecordedResponse {
 }
 
 /**
+ * The only stop reason that means the model finished saying what it had to say.
+ *
+ * An allowlist, not a denylist. `pause_turn` and `tool_use` both mean the turn is *not*
+ * over; `stop_sequence` means output was cut at a marker (and nothing here sends stop
+ * sequences, so receiving one is anomalous). Enumerating the bad ones would also mean a stop
+ * reason added to the API later arrives as usable by default, which is the wrong direction
+ * to fail in.
+ */
+export const COMPLETE_STOP_REASON = 'end_turn';
+
+/**
  * A response is usable only if the model finished saying what it had to say.
  *
- * Both failure modes here are ones that look like success to a careless caller. A refusal
- * arrives with empty content, which parses as "the persona found nothing". A `max_tokens`
- * stop arrives with *truncated* content, which — under structured output — is invalid JSON
- * at best and a finding missing its caveats at worst. Neither may be quietly turned into a
- * finding, so both throw.
+ * Every failure mode here looks like success to a careless caller. A refusal arrives with
+ * empty content, which parses as "the persona found nothing". A `max_tokens` stop arrives
+ * with *truncated* content, which — under structured output — is invalid JSON at best and a
+ * finding missing its caveats at worst. A `pause_turn` or `tool_use` stop arrives with a
+ * partial answer the model intended to continue. None may be quietly turned into a finding.
  */
 export function assertUsable(response: ModelResponse): ModelResponse {
-  if (response.stopReason === 'refusal') {
-    throw new ModelRefusalError(response);
-  }
+  if (response.stopReason === COMPLETE_STOP_REASON) return response;
+  if (response.stopReason === 'refusal') throw new ModelRefusalError(response);
   if (response.stopReason === 'max_tokens' || response.stopReason === 'model_context_window_exceeded') {
     throw new TruncatedResponseError(response);
   }
-  return response;
+  throw new IncompleteResponseError(response);
 }
 
 export class ModelRefusalError extends Error {
@@ -178,6 +188,24 @@ export class TruncatedResponseError extends Error {
         'declarations are exactly the parts that come last.',
     );
     this.name = 'TruncatedResponseError';
+    this.response = response;
+  }
+}
+
+/**
+ * The turn did not end. `pause_turn` and `tool_use` both mean the model intended to
+ * continue, so whatever text arrived is a fragment of an answer rather than an answer.
+ */
+export class IncompleteResponseError extends Error {
+  readonly response: ModelResponse;
+
+  constructor(response: ModelResponse) {
+    super(
+      `Model stopped at "${response.stopReason}", which does not end the turn. Any text ` +
+        'returned is a fragment the model meant to continue, and a fragment of a finding ' +
+        'reads exactly like a finding.',
+    );
+    this.name = 'IncompleteResponseError';
     this.response = response;
   }
 }

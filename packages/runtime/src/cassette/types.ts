@@ -156,8 +156,20 @@ export function assertCassette(value: unknown, where: string): Cassette {
     return fail('response.refusalCategory is only meaningful on a refusal');
   }
 
+  const schema = q['outputSchema'];
+  if (schema !== undefined && (typeof schema !== 'object' || schema === null || Array.isArray(schema))) {
+    return fail('request.outputSchema must be a JSON object');
+  }
+
   const typedRequest = request as ModelRequest;
-  const computed = cassetteKey(typedRequest);
+  // `resolveRequest` validates `thinking` and `effort` on the way into the hash. Catching it
+  // here is what turns "thinking is banana" into a message naming the file it came from.
+  let computed: string;
+  try {
+    computed = cassetteKey(typedRequest);
+  } catch (error) {
+    return fail((error as Error).message);
+  }
   if (typeof c['key'] !== 'string' || c['key'] === '') return fail('cassette has no key');
   if (c['key'] !== computed) {
     return fail(

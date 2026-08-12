@@ -118,6 +118,21 @@ describe('cassette validation', () => {
     expect(check(patch)).toThrow(message as RegExp);
   });
 
+  it.each([
+    ['thinking', { thinking: 'banana' }],
+    ['effort', { effort: 'insane' }],
+  ])('rejects a request with an unrecognised %s, naming the file', (field, patch) => {
+    // A cassette is JSON and can say anything. Without this the value would hash fine and
+    // then be silently mapped to a default by the transport.
+    expect(check({ request: { ...request, ...patch } })).toThrow(new RegExp(`test: .*"${field}"`));
+  });
+
+  it('rejects an outputSchema that is not a JSON object', () => {
+    expect(check({ request: { ...request, outputSchema: ['not', 'an', 'object'] } })).toThrow(
+      /outputSchema must be a JSON object/,
+    );
+  });
+
   it('reports failures as CassetteIntegrityError with the file named', () => {
     expect(check({ origin: 'guessed' })).toThrow(CassetteIntegrityError);
     expect(check({ origin: 'guessed' })).toThrow(/^test: /);
