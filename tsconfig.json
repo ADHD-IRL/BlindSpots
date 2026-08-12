@@ -8,7 +8,9 @@
       "@mae/store": ["packages/store/src/index.ts"],
       "@mae/store/*": ["packages/store/src/*"],
       "@mae/fields": ["packages/fields/src/index.ts"],
-      "@mae/fields/*": ["packages/fields/src/*"]
+      "@mae/fields/*": ["packages/fields/src/*"],
+      "@mae/runtime": ["packages/runtime/src/index.ts"],
+      "@mae/runtime/*": ["packages/runtime/src/*"]
     }
   },
   "include": ["packages/*/src/**/*.ts", "packages/*/test/**/*.ts", "*.ts", "fixtures/**/*.ts"]

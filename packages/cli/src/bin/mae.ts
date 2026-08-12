@@ -26,6 +26,7 @@ const USAGE = `mae — MAE panel engine operator CLI
   ledger:verify --event <uuid>             Walk an event's hash chain
   charter:check [--corpus <path>]          Run the validator over a corpus of findings
   fields:load --fixture <path>             Ingest a field fixture (states its own class)
+  cassette:list [--dir <path>]             List the model cassettes and how they replay
 
 Both signatures are required before any persona runs (Appendix B §B.11).
 `;
@@ -164,6 +165,14 @@ switch (command) {
     }
 
     await closePool();
+    break;
+  }
+
+  case 'cassette:list': {
+    const { loadCassetteLibrary } = await import('@mae/runtime');
+    const { renderCassetteLibrary } = await import('../commands.ts');
+    const dir = flag('dir') ?? 'fixtures/cassettes';
+    console.log(renderCassetteLibrary(dir, loadCassetteLibrary(dir)));
     break;
   }
 
