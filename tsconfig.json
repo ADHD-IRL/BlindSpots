@@ -10,7 +10,9 @@
       "@mae/fields": ["packages/fields/src/index.ts"],
       "@mae/fields/*": ["packages/fields/src/*"],
       "@mae/runtime": ["packages/runtime/src/index.ts"],
-      "@mae/runtime/*": ["packages/runtime/src/*"]
+      "@mae/runtime/*": ["packages/runtime/src/*"],
+      "@mae/ui": ["packages/ui/src/index.ts"],
+      "@mae/ui/*": ["packages/ui/src/*"]
     }
   },
   "include": ["packages/*/src/**/*.ts", "packages/*/test/**/*.ts", "*.ts", "fixtures/**/*.ts"]

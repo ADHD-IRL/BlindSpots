@@ -90,6 +90,21 @@ importers:
         specifier: ^8.11.10
         version: 8.21.0
 
+  packages/ui:
+    dependencies:
+      '@mae/core':
+        specifier: workspace:*
+        version: link:../core
+      '@mae/fields':
+        specifier: workspace:*
+        version: link:../fields
+      '@mae/runtime':
+        specifier: workspace:*
+        version: link:../runtime
+      '@mae/store':
+        specifier: workspace:*
+        version: link:../store
+
 packages:
 
   '@ampproject/remapping@2.3.0':

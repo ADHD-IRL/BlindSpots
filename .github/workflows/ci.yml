@@ -25,8 +25,8 @@ jobs:
         run: pnpm vitest run --project core --coverage
       # The transport suite is pure too — cassettes replay from disk. Run it separately so
       # its incidental exercise of core code cannot inflate the coverage numbers above.
-      - name: Transport and CLI tests (recorded cassettes, no credentials)
-        run: pnpm vitest run --project runtime --project cli
+      - name: Transport, CLI and console tests (no credentials, no browser)
+        run: pnpm vitest run --project runtime --project cli --project ui
 
   database:
     name: store and fields (pgvector)

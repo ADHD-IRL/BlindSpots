@@ -1,0 +1,16 @@
+{
+  "name": "@mae/ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*"
+  },
+  "dependencies": {
+    "@mae/core": "workspace:*",
+    "@mae/fields": "workspace:*",
+    "@mae/runtime": "workspace:*",
+    "@mae/store": "workspace:*"
+  }
+}

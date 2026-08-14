@@ -468,3 +468,65 @@ export async function loadScenario(client: PoolClient, scenarioId: string): Prom
     authoredBy: row.authored_by,
   };
 }
+
+export interface PanelSummary {
+  readonly panelId: string;
+  readonly scenarioId: string;
+  readonly eventId: string | null;
+  readonly subject: string;
+  readonly lifecycleStage: string;
+  readonly informingDecision: string;
+  readonly phase: number | null;
+  readonly openedAt: string | null;
+  readonly memberCount: number;
+  readonly scenarioApprovedBy: string | null;
+  readonly panelApprovedBy: string | null;
+}
+
+/**
+ * Every panel, newest event first.
+ *
+ * Deliberately returns the two signature fields rather than a single "approved" boolean.
+ * §B.11 lists scenario authorship and panel composition approval as two separate
+ * non-delegable decisions, and an index that collapses them would let a reader believe one
+ * signature had settled the matter.
+ */
+export async function listPanels(client: PoolClient): Promise<PanelSummary[]> {
+  const { rows } = await client.query<{
+    panel_id: string;
+    scenario_id: string;
+    event_id: string | null;
+    subject: string;
+    lifecycle_stage: string;
+    informing_decision: string;
+    phase: number | null;
+    opened_at: Date | null;
+    member_count: string;
+    scenario_approved_by: string | null;
+    panel_approved_by: string | null;
+  }>(
+    `SELECT p.id AS panel_id, p.scenario_id, e.id AS event_id,
+            s.subject, s.lifecycle_stage, s.informing_decision,
+            e.phase, e.opened_at,
+            p.approved_by AS panel_approved_by, s.approved_by AS scenario_approved_by,
+            (SELECT count(*) FROM panel_members m WHERE m.panel_id = p.id) AS member_count
+       FROM panels p
+       JOIN scenarios s ON s.id = p.scenario_id
+       LEFT JOIN events e ON e.panel_id = p.id
+      ORDER BY e.opened_at DESC NULLS LAST, p.id`,
+  );
+
+  return rows.map((r) => ({
+    panelId: r.panel_id,
+    scenarioId: r.scenario_id,
+    eventId: r.event_id,
+    subject: r.subject,
+    lifecycleStage: r.lifecycle_stage,
+    informingDecision: r.informing_decision,
+    phase: r.phase,
+    openedAt: r.opened_at === null ? null : r.opened_at.toISOString(),
+    memberCount: Number(r.member_count),
+    scenarioApprovedBy: r.scenario_approved_by,
+    panelApprovedBy: r.panel_approved_by,
+  }));
+}
