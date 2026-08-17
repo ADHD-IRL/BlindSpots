@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { type GradedChunk, type PersonaContext, verifyChain } from '@mae/core';
+import type { PoolClient } from '@mae/store';
 import { closePool, listFindings, loadChain, migrate, withClient } from '@mae/store';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { PersonaOutcome } from '../src/persona/run.ts';
@@ -64,7 +65,7 @@ const accepted: PersonaOutcome = {
 };
 
 /** Opens a scenario, panel and event so the foreign keys resolve. */
-async function openTestEvent(client: import('@mae/store').PoolClient): Promise<string> {
+async function openTestEvent(client: PoolClient): Promise<string> {
   const scenarioId = randomUUID();
   const panelId = randomUUID();
   const eventId = randomUUID();
