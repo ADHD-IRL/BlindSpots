@@ -345,6 +345,36 @@ not lost when it is. `convene`'s warnings are written as input to the Devil's Ad
 
 ---
 
+## 12. The model transport, and a third provenance value
+
+The plan's M4 assumes a live model call. There are no credentials in this environment, so the
+transport is an interface (`ModelTransport`) with three implementations: `AnthropicTransport`
+(live), `RecordingTransport` (captures), and `RecordedTransport` (replays). The persona
+runtime is built against the interface, so the charter loop, the repair reducer and the ledger
+writes are testable before any model is called — the same argument the plan makes for building
+the deterministic core first, applied one layer out.
+
+Three decisions worth recording:
+
+- **`provenance` is `live | replayed | authored`, not a boolean.** The plan has no notion of
+  it. Two values would be enough to distinguish a live call from a replay, but every cassette
+  shipped today was *written by a person* — no model has produced any of it. That is the same
+  distinction `contentClass` draws on field content, and it is exactly as easy to lose. It
+  rides on every `ModelResponse` and goes to the ledger.
+- **A stored response cannot carry its own provenance.** `assertCassette` rejects the field
+  outright, and `RecordedTransport` constructs the response property by property rather than
+  spreading the stored object. A cassette file asserting `provenance: "live"` would otherwise
+  replay as a live result for the life of the repository.
+- **A cassette miss throws.** No fall-through to a live call, no placeholder. A fixture
+  transport that invents a response on a miss produces a green suite that has tested nothing,
+  and it fails silently precisely when the prompt has changed under it.
+
+The live transport sends no `temperature`, `top_p`, `top_k`, or `thinking.budget_tokens`: all
+four are rejected with a 400 on this model family. `ModelRequest` has no field for any of
+them, so the shape cannot grow one back by accident.
+
+---
+
 ## Not resolved here
 
 Per §6 of the implementation plan and §E.9, these are flagged rather than solved:
@@ -360,3 +390,8 @@ Per §6 of the implementation plan and §E.9, these are flagged rather than solv
 - **The verification circularity is untouched.** The auditability affordances are built
   (source grades surfaced, specifics traced, gaps enumerated) because they are what a
   non-specialist validator can actually check.
+- **No model has been called.** The live transport is written and unit-tested against a stub
+  client; it has never opened a connection, because no API key exists here. Every cassette in
+  `fixtures/cassettes/` is `authored`. A green transport suite shows the request is built, the
+  response parsed, the charter run over it and the repair reducer applied — and shows nothing
+  about what a model would say.

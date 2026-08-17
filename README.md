@@ -33,9 +33,13 @@ correctness actually lives.
 | Phase 0 persistence: scenario, panel, event, and the two-signature approval gate | Built |
 | Synthetic field content, identified and enforced end to end | Built |
 | Chain composition bounds (§E.3) and effective sample size (§E.4) | Built |
+| Model transport: live, recording, and recorded-fixture replay | Built |
+| Operator console: Phase 0 approval gate and the audit views | Built |
 | **M4–M10** Persona runtime, phases, challenge, metrics, governance, UI | Not started |
 
-No model has been called. Nothing in `packages/core` can call one — see below.
+No model has been called. The live transport exists and is unit-tested against a stub client;
+it has never opened a connection, because there is no API key here. Nothing in `packages/core`
+can call one — see below.
 
 ## Layout
 
@@ -51,10 +55,13 @@ packages/
     retrieval/    Admiralty grading, pure hybrid ranking
   store/    Postgres access, hash-chained ledger append, migrations
   fields/   ingest, source grading, situational retrieval
+  runtime/  the model seam: transports, cassettes, request hashing
   cli/      operator commands
+  ui/       operator console: server-rendered, no build step, no script
 fixtures/
   scenarios/  the three worked scenarios from §B.2.5, with their stated panels
   charter/    deliberately non-conforming findings, with the codes each must produce
+  cassettes/  recorded and authored model responses, replayed offline
 ```
 
 `packages/core` may import nothing but itself and `node:crypto`. This is enforced twice: an
@@ -76,11 +83,58 @@ pnpm test:db                       # store and fields integration
 pnpm seed:registry --archetypes latent_physical,procedural_interpretive
 pnpm cli panel:propose --scenario fixtures/scenarios/composite-qualification.json
 pnpm cli charter:check
+pnpm cli cassette:list
 pnpm cli ledger:verify --event <uuid>
+
+pnpm ui                            # console on http://127.0.0.1:5173
 ```
 
 Database-backed tests skip cleanly when `DATABASE_URL` is unset. CI runs them against a
 pgvector service container.
+
+## The model seam
+
+`packages/runtime` is the only place that can call a model, and `AnthropicTransport` is the
+only class in it that opens a socket. Everything above the seam — the charter loop, the repair
+reducer, the ledger writes — runs against the `ModelTransport` interface, so it is testable
+without a key.
+
+Every response carries a `provenance`, and there are three values rather than two:
+
+| | |
+|---|---|
+| `live` | a call to the API, right now |
+| `replayed` | a model produced this text once, and it was captured |
+| `authored` | no model has ever produced this text |
+
+A cassette cannot claim its own provenance — the field is rejected at load, and the transport
+derives it from the cassette's declared origin. And a cassette miss **throws**: there is no
+fall-through to a live call and no invented placeholder, because a fixture transport that
+fabricates on a miss produces a green suite that has tested nothing, silently, exactly when
+the prompt has changed under it.
+
+Everything in `fixtures/cassettes/` is `authored` today. See its README.
+
+## The console
+
+`pnpm ui` serves an operator console on loopback. Server-rendered HTML, no bundler, no build
+step, and **no script at all** — the renderers are pure functions from domain objects to
+markup, tested exactly the way the CLI's renderers are, and the pages carry a CSP that says
+so. A tool whose job is reading evidence and signing off on it is better served by a page
+that works with scripting disabled than by anything a build step would buy.
+
+Two things it is careful about, because getting them wrong in a UI is how a constraint
+quietly stops being one:
+
+- **The two signatures are two forms, never one.** §B.11 lists scenario authorship and panel
+  composition approval as separate non-delegable decisions. A single "approve" button would
+  be an interface that merged them. Sign-off is POST-only, so a link cannot produce a
+  signature nobody knowingly gave, and re-signing renders the write-once freeze as an
+  explanation rather than a stack trace.
+- **The Admiralty axes are never combined.** No merged grade, no score column, and no colour
+  ramp — a ramp is a scalar drawn in another notation, and §E.2.2 is explicit that collapsing
+  the two destroys the distinction. The test for this checks the table structure, not the
+  prose.
 
 ## The two tests that matter most
 
@@ -109,6 +163,10 @@ Stated plainly, because the code should not imply otherwise:
   defaulting to zero.
 - **Specificity extraction has false positives.** The human override path exists, and every
   override is logged.
+- **No model has been called, and a replay is not a run.** Every cassette in
+  `fixtures/cassettes/` was written by a person. Replaying one shows the runtime handles a
+  response of that shape; it shows nothing about what a model would produce. The `authored`
+  provenance is on every such response for that reason, and it goes to the ledger.
 - **The verification circularity is untouched.** Chapter Twenty-One applies: where the
   organization has no competent validator, this software can enforce structure and
   traceability but cannot establish correctness. The auditability affordances are built

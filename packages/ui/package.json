@@ -1,10 +1,11 @@
 {
-  "name": "@mae/cli",
+  "name": "@mae/ui",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "bin": {
-    "mae": "./src/bin/mae.ts"
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*"
   },
   "dependencies": {
     "@mae/core": "workspace:*",

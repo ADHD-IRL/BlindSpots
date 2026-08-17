@@ -23,6 +23,10 @@ jobs:
       - run: pnpm typecheck
       - name: Unit tests with coverage thresholds on charter, composition and metrics
         run: pnpm vitest run --project core --coverage
+      # The transport suite is pure too — cassettes replay from disk. Run it separately so
+      # its incidental exercise of core code cannot inflate the coverage numbers above.
+      - name: Transport, CLI and console tests (no credentials, no browser)
+        run: pnpm vitest run --project runtime --project cli --project ui
 
   database:
     name: store and fields (pgvector)

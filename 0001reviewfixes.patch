@@ -1,0 +1,581 @@
+From b0ea389f8bb140e7d636a239bc4298f89635a945 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 12 Aug 2026 15:02:30 +0000
+Subject: [PATCH] Review fixes: fail closed on incomplete turns, never lose a
+ paid response
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Five findings from a review of the transport commit.
+
+assertUsable let pause_turn, tool_use and stop_sequence through as usable.
+The first two mean the turn is not over, so the text is a fragment the model
+meant to continue — and a fragment of a finding reads exactly like a
+finding. Inverted to an allowlist on end_turn, so a stop reason added to the
+API later fails closed instead of arriving usable by default. New
+IncompleteResponseError distinguishes it from truncation and refusal.
+
+RecordingTransport called its sink unguarded, so a read-only directory or a
+full disk destroyed a response that had already been received and paid for.
+This is the one place in the package where a failure must not propagate: the
+sink is now guarded, the failure is reported loudly through an injectable
+handler, and the caller still gets what the model said. The report says
+explicitly that the response was not recorded, so a later miss is not a
+mystery.
+
+Neither thinking nor effort was validated anywhere. Requests arrive from
+cassette files, which are JSON and can say anything, and the transport maps
+thinking with a two-way branch — so an unrecognised value silently became
+'disabled', a request that quietly stopped asking for reasoning and would
+replay that way forever. Validation goes in resolveRequest, the single choke
+point both the hash and the API call pass through, and assertCassette
+re-raises it with the offending file named. outputSchema is shape-checked
+too.
+
+The core-purity lint rule was not extended with @mae/runtime, so an
+invariant the README says is enforced twice was enforced once. Core reaching
+the model seam is the worst version of that violation: the charter validator
+exists to sit between the model and the record, and it cannot do that from
+behind one.
+
+renderCassetteLibrary had no test and CI never ran --project cli at all.
+Both fixed; the new tests cover the authored-content warning being earned
+rather than unconditional.
+
+Not changed: the review also flagged {thinking:'disabled', effort:'xhigh'}
+as an API-rejected combination. I have no documentation for that constraint,
+and encoding an unverified 400 rule would make the transport reject requests
+the API may well accept — the failure mode the claim classifiers are
+explicitly written to avoid.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01VRzdxrUUvaJHuo6qvUK2uY
+---
+ .github/workflows/ci.yml                    |  4 +-
+ eslint.config.js                            | 15 ++++-
+ packages/cli/test/commands.test.ts          | 51 ++++++++++++++++
+ packages/runtime/src/cassette/types.ts      | 14 ++++-
+ packages/runtime/src/model/key.ts           | 43 +++++++++++++-
+ packages/runtime/src/model/types.ts         | 46 ++++++++++++---
+ packages/runtime/src/transport/recording.ts | 29 +++++++++-
+ packages/runtime/test/cassette.test.ts      | 15 +++++
+ packages/runtime/test/key.test.ts           | 33 ++++++++++-
+ packages/runtime/test/recorded.test.ts      | 11 ++++
+ packages/runtime/test/recording.test.ts     | 64 +++++++++++++++++++++
+ 11 files changed, 304 insertions(+), 21 deletions(-)
+ create mode 100644 packages/cli/test/commands.test.ts
+
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 4d7c390..d90e806 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -25,8 +25,8 @@ jobs:
+         run: pnpm vitest run --project core --coverage
+       # The transport suite is pure too — cassettes replay from disk. Run it separately so
+       # its incidental exercise of core code cannot inflate the coverage numbers above.
+-      - name: Transport tests (recorded cassettes, no credentials)
+-        run: pnpm vitest run --project runtime
++      - name: Transport and CLI tests (recorded cassettes, no credentials)
++        run: pnpm vitest run --project runtime --project cli
+ 
+   database:
+     name: store and fields (pgvector)
+diff --git a/eslint.config.js b/eslint.config.js
+index b9fc196..a9e66ae 100644
+--- a/eslint.config.js
++++ b/eslint.config.js
+@@ -56,9 +56,20 @@ export default tseslint.config(
+               message: 'packages/core must not perform I/O. Only node:crypto is permitted.',
+             },
+             {
+-              group: ['@mae/store', '@mae/store/*', '@mae/fields', '@mae/fields/*'],
++              group: [
++                '@mae/store',
++                '@mae/store/*',
++                '@mae/fields',
++                '@mae/fields/*',
++                // Added with packages/runtime. Core reaching the model seam would be the
++                // worst version of this violation: the charter validator exists to sit
++                // between the model and the record, and it cannot do that from behind one.
++                '@mae/runtime',
++                '@mae/runtime/*',
++              ],
+               message:
+-                'packages/core must not depend on store or fields. Dependencies point inward.',
++                'packages/core must not depend on store, fields or runtime. Dependencies ' +
++                'point inward, and core must not be able to call a model.',
+             },
+           ],
+         },
+diff --git a/packages/cli/test/commands.test.ts b/packages/cli/test/commands.test.ts
+new file mode 100644
+index 0000000..34af207
+--- /dev/null
++++ b/packages/cli/test/commands.test.ts
+@@ -0,0 +1,51 @@
++import { fileURLToPath } from 'node:url';
++import { loadCassetteLibrary } from '@mae/runtime';
++import { describe, expect, it } from 'vitest';
++import { renderCassetteLibrary } from '../src/commands.ts';
++
++const CASSETTE_DIR = fileURLToPath(new URL('../../../fixtures/cassettes', import.meta.url));
++
++describe('cassette:list', () => {
++  const cassettes = loadCassetteLibrary(CASSETTE_DIR);
++  const rendered = renderCassetteLibrary(CASSETTE_DIR, cassettes);
++
++  it('reports how many cassettes were found, and where', () => {
++    expect(rendered).toContain(`${cassettes.length} cassette(s) in ${CASSETTE_DIR}`);
++  });
++
++  it('shows every cassette with its origin and the provenance it replays as', () => {
++    for (const cassette of cassettes) {
++      expect(rendered).toContain(cassette.request.purpose);
++      expect(rendered).toContain(cassette.key.slice(0, 12));
++    }
++    expect(rendered).toContain('authored -> replays as authored');
++  });
++
++  it('surfaces the note, which is the only thing distinguishing an invention from a capture', () => {
++    for (const cassette of cassettes) {
++      if (cassette.note !== undefined) expect(rendered).toContain(cassette.note);
++    }
++  });
++
++  it('warns about authored content, in proportion to how much of it there is', () => {
++    const authored = cassettes.filter((c) => c.origin === 'authored').length;
++    expect(rendered).toContain(`${authored} of these are AUTHORED`);
++    expect(rendered).toMatch(/shows nothing whatever about what a model would say/);
++  });
++
++  it('says nothing about authored content when there is none', () => {
++    // The warning has to be earned or it becomes furniture people stop reading.
++    const recordedOnly = cassettes
++      .slice(0, 1)
++      .map((c) => ({ ...c, origin: 'recorded' as const }));
++    const output = renderCassetteLibrary('somewhere', recordedOnly);
++    expect(output).not.toContain('AUTHORED');
++    expect(output).toContain('recorded -> replays as replayed');
++  });
++
++  it('renders an empty library without claiming anything about it', () => {
++    const output = renderCassetteLibrary('somewhere', []);
++    expect(output).toContain('0 cassette(s) in somewhere');
++    expect(output).not.toContain('AUTHORED');
++  });
++});
+diff --git a/packages/runtime/src/cassette/types.ts b/packages/runtime/src/cassette/types.ts
+index d41387d..100d0ad 100644
+--- a/packages/runtime/src/cassette/types.ts
++++ b/packages/runtime/src/cassette/types.ts
+@@ -156,8 +156,20 @@ export function assertCassette(value: unknown, where: string): Cassette {
+     return fail('response.refusalCategory is only meaningful on a refusal');
+   }
+ 
++  const schema = q['outputSchema'];
++  if (schema !== undefined && (typeof schema !== 'object' || schema === null || Array.isArray(schema))) {
++    return fail('request.outputSchema must be a JSON object');
++  }
++
+   const typedRequest = request as ModelRequest;
+-  const computed = cassetteKey(typedRequest);
++  // `resolveRequest` validates `thinking` and `effort` on the way into the hash. Catching it
++  // here is what turns "thinking is banana" into a message naming the file it came from.
++  let computed: string;
++  try {
++    computed = cassetteKey(typedRequest);
++  } catch (error) {
++    return fail((error as Error).message);
++  }
+   if (typeof c['key'] !== 'string' || c['key'] === '') return fail('cassette has no key');
+   if (c['key'] !== computed) {
+     return fail(
+diff --git a/packages/runtime/src/model/key.ts b/packages/runtime/src/model/key.ts
+index 8da5cc7..5fbbe13 100644
+--- a/packages/runtime/src/model/key.ts
++++ b/packages/runtime/src/model/key.ts
+@@ -1,6 +1,11 @@
+ import { createHash } from 'node:crypto';
+ import { canonicalJson } from '@mae/core';
+-import type { CanonicalObject, ModelRequest, ResolvedModelRequest } from './types.ts';
++import {
++  EFFORT_LEVELS,
++  type CanonicalObject,
++  type ModelRequest,
++  type ResolvedModelRequest,
++} from './types.ts';
+ 
+ /**
+  * Defaults, applied in exactly one place.
+@@ -23,18 +28,50 @@ export const DEFAULT_EFFORT = 'high';
+  * first for no reason a reader could ever find.
+  */
+ export function resolveRequest(request: ModelRequest): ResolvedModelRequest {
++  const thinking = request.thinking ?? DEFAULT_THINKING;
++  const effort = request.effort ?? DEFAULT_EFFORT;
++
++  // Checked here rather than only at the type level, because requests also arrive from
++  // cassette files, which are JSON and can say anything. This is the single choke point both
++  // the hash and the API call pass through, so validating here closes both at once. It
++  // matters most for `thinking`: the transport maps it with a two-way branch, so an
++  // unrecognised value would silently become `disabled` — a request that quietly stops
++  // asking for reasoning and replays forever as though it never had.
++  if (thinking !== 'adaptive' && thinking !== 'disabled') {
++    throw new InvalidModelRequestError('thinking', thinking, ['adaptive', 'disabled']);
++  }
++  if (!EFFORT_SET.has(effort)) {
++    throw new InvalidModelRequestError('effort', effort, [...EFFORT_LEVELS]);
++  }
++
+   return {
+     purpose: request.purpose,
+     model: request.model,
+     maxTokens: request.maxTokens,
+     system: request.system,
+     messages: request.messages.map((m) => ({ role: m.role, content: m.content })),
+-    thinking: request.thinking ?? DEFAULT_THINKING,
+-    effort: request.effort ?? DEFAULT_EFFORT,
++    thinking,
++    effort,
+     outputSchema: request.outputSchema ?? null,
+   };
+ }
+ 
++const EFFORT_SET: ReadonlySet<string> = new Set(EFFORT_LEVELS);
++
++export class InvalidModelRequestError extends Error {
++  readonly field: string;
++
++  constructor(field: string, value: unknown, permitted: readonly string[]) {
++    super(
++      `Model request field "${field}" is ${JSON.stringify(value)}; permitted values are ` +
++        `${permitted.join(', ')}. An unrecognised value would be mapped to a default and ` +
++        'sent as a request nobody wrote.',
++    );
++    this.name = 'InvalidModelRequestError';
++    this.field = field;
++  }
++}
++
+ /**
+  * The canonical form of a resolved request.
+  *
+diff --git a/packages/runtime/src/model/types.ts b/packages/runtime/src/model/types.ts
+index 911789e..de9c432 100644
+--- a/packages/runtime/src/model/types.ts
++++ b/packages/runtime/src/model/types.ts
+@@ -135,23 +135,33 @@ export interface ModelResponse extends RecordedResponse {
+   readonly transportId: string;
+ }
+ 
++/**
++ * The only stop reason that means the model finished saying what it had to say.
++ *
++ * An allowlist, not a denylist. `pause_turn` and `tool_use` both mean the turn is *not*
++ * over; `stop_sequence` means output was cut at a marker (and nothing here sends stop
++ * sequences, so receiving one is anomalous). Enumerating the bad ones would also mean a stop
++ * reason added to the API later arrives as usable by default, which is the wrong direction
++ * to fail in.
++ */
++export const COMPLETE_STOP_REASON = 'end_turn';
++
+ /**
+  * A response is usable only if the model finished saying what it had to say.
+  *
+- * Both failure modes here are ones that look like success to a careless caller. A refusal
+- * arrives with empty content, which parses as "the persona found nothing". A `max_tokens`
+- * stop arrives with *truncated* content, which — under structured output — is invalid JSON
+- * at best and a finding missing its caveats at worst. Neither may be quietly turned into a
+- * finding, so both throw.
++ * Every failure mode here looks like success to a careless caller. A refusal arrives with
++ * empty content, which parses as "the persona found nothing". A `max_tokens` stop arrives
++ * with *truncated* content, which — under structured output — is invalid JSON at best and a
++ * finding missing its caveats at worst. A `pause_turn` or `tool_use` stop arrives with a
++ * partial answer the model intended to continue. None may be quietly turned into a finding.
+  */
+ export function assertUsable(response: ModelResponse): ModelResponse {
+-  if (response.stopReason === 'refusal') {
+-    throw new ModelRefusalError(response);
+-  }
++  if (response.stopReason === COMPLETE_STOP_REASON) return response;
++  if (response.stopReason === 'refusal') throw new ModelRefusalError(response);
+   if (response.stopReason === 'max_tokens' || response.stopReason === 'model_context_window_exceeded') {
+     throw new TruncatedResponseError(response);
+   }
+-  return response;
++  throw new IncompleteResponseError(response);
+ }
+ 
+ export class ModelRefusalError extends Error {
+@@ -181,3 +191,21 @@ export class TruncatedResponseError extends Error {
+     this.response = response;
+   }
+ }
++
++/**
++ * The turn did not end. `pause_turn` and `tool_use` both mean the model intended to
++ * continue, so whatever text arrived is a fragment of an answer rather than an answer.
++ */
++export class IncompleteResponseError extends Error {
++  readonly response: ModelResponse;
++
++  constructor(response: ModelResponse) {
++    super(
++      `Model stopped at "${response.stopReason}", which does not end the turn. Any text ` +
++        'returned is a fragment the model meant to continue, and a fragment of a finding ' +
++        'reads exactly like a finding.',
++    );
++    this.name = 'IncompleteResponseError';
++    this.response = response;
++  }
++}
+diff --git a/packages/runtime/src/transport/recording.ts b/packages/runtime/src/transport/recording.ts
+index eeb05ec..8232808 100644
+--- a/packages/runtime/src/transport/recording.ts
++++ b/packages/runtime/src/transport/recording.ts
+@@ -5,11 +5,24 @@ import type { Cassette } from '../cassette/types.ts';
+ /** Where captured cassettes go. Injected, so this transport performs no I/O of its own. */
+ export type CassetteSink = (cassette: Cassette) => void;
+ 
++/** Called when the sink fails. Default reports to stderr; the response still returns. */
++export type CaptureErrorHandler = (error: Error, cassette: Cassette) => void;
++
+ export interface RecordingTransportOptions {
+   readonly capturedBy: string;
+   /** Injected so recordings are reproducible under test. */
+   readonly now?: () => string;
+   readonly id?: string;
++  readonly onCaptureError?: CaptureErrorHandler;
++}
++
++function reportCaptureFailure(error: Error, cassette: Cassette): void {
++  console.error(
++    `Failed to write cassette for "${cassette.request.purpose}" ` +
++      `(key ${cassette.key.slice(0, 12)}…): ${error.message}\n` +
++      'The model response itself is intact and is being returned. It is NOT recorded, so a ' +
++      'later replay of this request will miss.',
++  );
+ }
+ 
+ /**
+@@ -27,6 +40,7 @@ export class RecordingTransport implements ModelTransport {
+   #sink: CassetteSink;
+   #capturedBy: string;
+   #now: () => string;
++  #onCaptureError: CaptureErrorHandler;
+ 
+   constructor(inner: ModelTransport, sink: CassetteSink, options: RecordingTransportOptions) {
+     if (options.capturedBy.trim() === '') {
+@@ -36,6 +50,7 @@ export class RecordingTransport implements ModelTransport {
+     this.#sink = sink;
+     this.#capturedBy = options.capturedBy;
+     this.#now = options.now ?? (() => new Date().toISOString());
++    this.#onCaptureError = options.onCaptureError ?? reportCaptureFailure;
+     this.id = options.id ?? `recording:${inner.id}`;
+   }
+ 
+@@ -53,7 +68,7 @@ export class RecordingTransport implements ModelTransport {
+     // A refusal or a truncation is recorded as faithfully as a completion. The cassette is a
+     // record of what happened, not of what was wanted; `assertUsable` is where the caller
+     // decides what to do about it.
+-    this.#sink({
++    const cassette: Cassette = {
+       key: cassetteKey(request),
+       origin: 'recorded',
+       capturedAt: this.#now(),
+@@ -66,7 +81,17 @@ export class RecordingTransport implements ModelTransport {
+         usage: { inputTokens: response.usage.inputTokens, outputTokens: response.usage.outputTokens },
+         ...(response.refusalCategory === undefined ? {} : { refusalCategory: response.refusalCategory }),
+       },
+-    });
++    };
++
++    // The one place in this package where a failure must not propagate. The call has already
++    // happened and has already been paid for; a read-only directory or a full disk is no
++    // reason to destroy the response on its way back to the caller. It is reported loudly
++    // rather than swallowed, and the caller still gets what the model said.
++    try {
++      this.#sink(cassette);
++    } catch (error) {
++      this.#onCaptureError(error as Error, cassette);
++    }
+ 
+     return {
+       text: response.text,
+diff --git a/packages/runtime/test/cassette.test.ts b/packages/runtime/test/cassette.test.ts
+index 95bde9b..fae2fcb 100644
+--- a/packages/runtime/test/cassette.test.ts
++++ b/packages/runtime/test/cassette.test.ts
+@@ -118,6 +118,21 @@ describe('cassette validation', () => {
+     expect(check(patch)).toThrow(message as RegExp);
+   });
+ 
++  it.each([
++    ['thinking', { thinking: 'banana' }],
++    ['effort', { effort: 'insane' }],
++  ])('rejects a request with an unrecognised %s, naming the file', (field, patch) => {
++    // A cassette is JSON and can say anything. Without this the value would hash fine and
++    // then be silently mapped to a default by the transport.
++    expect(check({ request: { ...request, ...patch } })).toThrow(new RegExp(`test: .*"${field}"`));
++  });
++
++  it('rejects an outputSchema that is not a JSON object', () => {
++    expect(check({ request: { ...request, outputSchema: ['not', 'an', 'object'] } })).toThrow(
++      /outputSchema must be a JSON object/,
++    );
++  });
++
+   it('reports failures as CassetteIntegrityError with the file named', () => {
+     expect(check({ origin: 'guessed' })).toThrow(CassetteIntegrityError);
+     expect(check({ origin: 'guessed' })).toThrow(/^test: /);
+diff --git a/packages/runtime/test/key.test.ts b/packages/runtime/test/key.test.ts
+index fde61e9..cf2ecbf 100644
+--- a/packages/runtime/test/key.test.ts
++++ b/packages/runtime/test/key.test.ts
+@@ -1,6 +1,6 @@
+ import { describe, expect, it } from 'vitest';
+-import { cassetteKey, resolveRequest } from '../src/model/key.ts';
+-import type { ModelRequest } from '../src/model/types.ts';
++import { InvalidModelRequestError, cassetteKey, resolveRequest } from '../src/model/key.ts';
++import { EFFORT_LEVELS, type ModelRequest } from '../src/model/types.ts';
+ 
+ const base: ModelRequest = {
+   purpose: 'phase1_finding',
+@@ -62,3 +62,32 @@ describe('the cassette key', () => {
+     expect(cassetteKey(withExtra)).toBe(cassetteKey(base));
+   });
+ });
++
++describe('request validation at the choke point', () => {
++  // Both the hash and the API call go through resolveRequest, so validating there closes
++  // both at once. It matters because requests also arrive from cassette files, which are
++  // JSON and can say anything at all.
++  it.each([
++    ['thinking', { thinking: 'banana' }],
++    ['effort', { effort: 'insane' }],
++  ])('rejects an unrecognised %s rather than defaulting it', (field, patch) => {
++    const bad = { ...base, ...patch } as ModelRequest;
++    expect(() => resolveRequest(bad)).toThrow(InvalidModelRequestError);
++    expect(() => resolveRequest(bad)).toThrow(new RegExp(`"${field}"`));
++  });
++
++  it('rejects it at hashing time too, so a bad request cannot even be keyed', () => {
++    // Without this, `thinking: "banana"` would hash fine and then be mapped to `disabled` by
++    // the transport's two-way branch — a request that quietly stopped asking for reasoning
++    // and replays that way forever.
++    expect(() => cassetteKey({ ...base, thinking: 'banana' } as unknown as ModelRequest)).toThrow(
++      InvalidModelRequestError,
++    );
++  });
++
++  it('accepts every documented effort level', () => {
++    for (const effort of EFFORT_LEVELS) {
++      expect(resolveRequest({ ...base, effort }).effort).toBe(effort);
++    }
++  });
++});
+diff --git a/packages/runtime/test/recorded.test.ts b/packages/runtime/test/recorded.test.ts
+index 492b55a..80c5360 100644
+--- a/packages/runtime/test/recorded.test.ts
++++ b/packages/runtime/test/recorded.test.ts
+@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
+ import type { Cassette } from '../src/cassette/types.ts';
+ import { cassetteKey } from '../src/model/key.ts';
+ import {
++  IncompleteResponseError,
+   ModelRefusalError,
+   type ModelRequest,
+   type ModelResponse,
+@@ -168,6 +169,16 @@ describe('assertUsable', () => {
+     },
+   );
+ 
++  it.each(['pause_turn', 'tool_use', 'stop_sequence'] as const)(
++    'throws on %s, because the turn did not end',
++    (stopReason) => {
++      // These arrive WITH text, which is what makes them dangerous: a fragment the model
++      // meant to continue reads exactly like a finding. An allowlist rather than a denylist,
++      // so a stop reason added to the API later fails closed instead of passing by default.
++      expect(() => assertUsable(response({ stopReason }))).toThrow(IncompleteResponseError);
++    },
++  );
++
+   it('carries the response on the error so it can be logged', () => {
+     const refused = response({ stopReason: 'refusal', refusalCategory: 'unspecified' });
+     try {
+diff --git a/packages/runtime/test/recording.test.ts b/packages/runtime/test/recording.test.ts
+index 09153a2..55571b5 100644
+--- a/packages/runtime/test/recording.test.ts
++++ b/packages/runtime/test/recording.test.ts
+@@ -132,3 +132,67 @@ describe('what recording refuses to do', () => {
+     await expect(transport.complete(request)).rejects.toThrow(/Only a live model call/);
+   });
+ });
++
++describe('when the sink fails', () => {
++  it('still returns the response, because the call already happened and was paid for', async () => {
++    // The only place in this package where a failure must not propagate. A read-only
++    // directory is no reason to destroy a completed model response on its way back.
++    const errors: Error[] = [];
++    const transport = new RecordingTransport(
++      new StubTransport(),
++      () => {
++        throw new Error('EACCES: permission denied');
++      },
++      {
++        capturedBy: 'human:test_operator',
++        now: () => '2026-08-11T00:00:00.000Z',
++        onCaptureError: (error) => errors.push(error),
++      },
++    );
++
++    const response = await transport.complete(request);
++    expect(response.text).toBe('a finding');
++    expect(response.provenance).toBe('live');
++    expect(errors.map((e) => e.message)).toEqual(['EACCES: permission denied']);
++  });
++
++  it('reports the failure loudly rather than swallowing it', async () => {
++    // Not recorded means a later replay of this request misses, which the operator has to
++    // know at the time rather than discover as an unexplained miss weeks later.
++    const seen: string[] = [];
++    const original = console.error;
++    console.error = (msg: string) => seen.push(msg);
++    try {
++      const transport = new RecordingTransport(
++        new StubTransport(),
++        () => {
++          throw new Error('ENOSPC: no space left on device');
++        },
++        { capturedBy: 'human:test_operator', now: () => '2026-08-11T00:00:00.000Z' },
++      );
++      await transport.complete(request);
++    } finally {
++      console.error = original;
++    }
++
++    expect(seen.join('\n')).toMatch(/ENOSPC/);
++    expect(seen.join('\n')).toMatch(/is being returned. It is NOT recorded/);
++  });
++
++  it('hands the handler the cassette that could not be written', async () => {
++    const captured: string[] = [];
++    const transport = new RecordingTransport(
++      new StubTransport(),
++      () => {
++        throw new Error('disk on fire');
++      },
++      {
++        capturedBy: 'human:test_operator',
++        now: () => '2026-08-11T00:00:00.000Z',
++        onCaptureError: (_error, cassette) => captured.push(cassette.request.purpose),
++      },
++    );
++    await transport.complete(request);
++    expect(captured).toEqual(['phase1_finding']);
++  });
++});
+-- 
+2.43.0
+

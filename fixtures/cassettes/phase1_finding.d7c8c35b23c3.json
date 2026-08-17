@@ -1,0 +1,94 @@
+{
+  "key": "d7c8c35b23c31e22d74b9a1fab82168cdbd333549678f8a7aca699dd86537eec",
+  "origin": "authored",
+  "capturedAt": "2026-08-11T00:00:00.000Z",
+  "capturedBy": "system:authored_fixture",
+  "note": "A conforming Phase 1 finding: capped at \"considered\" and declaring its synthetic basis, so the charter validator returns no violations. Exercises the accepted path.",
+  "request": {
+    "purpose": "phase1_finding",
+    "model": "claude-opus-5",
+    "maxTokens": 2048,
+    "system": "You are a domain persona in a multidisciplinary adversary emulation panel.\nDomain: materials.polymers_adhesives. Archetype: latent_physical. Tier: principal.\nAnswer only from the retrieved field passages supplied in the user message.\nRespond with a single JSON object matching the finding schema.",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Scenario: qualification of a bonded composite primary structure whose supplier tier is partly opaque.\n\nRetrieved field passages:\n[synthetic-polymers-1] (F/6, synthetic) Surface preparation of a bonded joint controls the durability of the interface rather than its initial strength. A joint that passes proof loading at build can still lose interfacial adhesion over service life when preparation was inadequate.\n\n[synthetic-polymers-3] (F/6, synthetic) Where preparation is performed by a supplier and the process records are not contractually deliverable, the durability of the interface cannot be verified by the programme by any downstream means. The absent record is the finding.\n\nState one finding about whether interfacial durability can be verified."
+      }
+    ],
+    "outputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "statement",
+        "confidence",
+        "validityTier",
+        "basis",
+        "sourceGrades"
+      ],
+      "properties": {
+        "statement": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "string",
+          "enum": [
+            "gap",
+            "considered",
+            "plausible",
+            "likely",
+            "assessed"
+          ]
+        },
+        "validityTier": {
+          "type": "string",
+          "enum": [
+            "low",
+            "moderate",
+            "high"
+          ]
+        },
+        "basis": {
+          "type": "string"
+        },
+        "addressesInclusion": {
+          "type": "string"
+        },
+        "syntheticBasis": {
+          "type": "boolean"
+        },
+        "sourceGrades": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "chunkId",
+              "reliability",
+              "credibility"
+            ],
+            "properties": {
+              "chunkId": {
+                "type": "string"
+              },
+              "reliability": {
+                "type": "string"
+              },
+              "credibility": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "response": {
+    "text": "{\n  \"statement\": \"Where bonded joint surface preparation is performed by a supplier and the process records are not contractually deliverable, the programme cannot verify interfacial durability by any downstream means. The absent record is itself the finding.\",\n  \"confidence\": \"considered\",\n  \"validityTier\": \"moderate\",\n  \"basis\": \"synthetic field passages on surface preparation and supplier-held process records\",\n  \"addressesInclusion\": \"surface_preparation\",\n  \"syntheticBasis\": true,\n  \"sourceGrades\": [\n    {\n      \"chunkId\": \"synthetic-polymers-3\",\n      \"reliability\": \"F\",\n      \"credibility\": 6\n    },\n    {\n      \"chunkId\": \"synthetic-polymers-1\",\n      \"reliability\": \"F\",\n      \"credibility\": 6\n    }\n  ]\n}",
+    "stopReason": "end_turn",
+    "model": "claude-opus-5",
+    "usage": {
+      "inputTokens": 812,
+      "outputTokens": 214
+    }
+  }
+}

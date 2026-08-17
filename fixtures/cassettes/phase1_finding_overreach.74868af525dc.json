@@ -1,0 +1,94 @@
+{
+  "key": "74868af525dc8f880e87cedb160ed010ff8d48b6d44a3111ff3527861724db1c",
+  "origin": "authored",
+  "capturedAt": "2026-08-11T00:00:00.000Z",
+  "capturedBy": "system:authored_fixture",
+  "note": "A finding that claims \"assessed\" on synthetic material and drops the synthetic marking. Exercises CH012 in both of its directions and the one-attempt repair path. This is the shape of failure the charter exists for, written deliberately rather than waited for.",
+  "request": {
+    "purpose": "phase1_finding_overreach",
+    "model": "claude-opus-5",
+    "maxTokens": 2048,
+    "system": "You are a domain persona in a multidisciplinary adversary emulation panel.\nDomain: materials.polymers_adhesives. Archetype: latent_physical. Tier: principal.\nAnswer only from the retrieved field passages supplied in the user message.\nRespond with a single JSON object matching the finding schema.",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Scenario: qualification of a bonded composite primary structure whose supplier tier is partly opaque.\n\nRetrieved field passages:\n[synthetic-polymers-1] (F/6, synthetic) Surface preparation of a bonded joint controls the durability of the interface rather than its initial strength. A joint that passes proof loading at build can still lose interfacial adhesion over service life when preparation was inadequate.\n\n[synthetic-polymers-3] (F/6, synthetic) Where preparation is performed by a supplier and the process records are not contractually deliverable, the durability of the interface cannot be verified by the programme by any downstream means. The absent record is the finding.\n\nState one finding about interfacial durability, at the highest confidence you can support."
+      }
+    ],
+    "outputSchema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "statement",
+        "confidence",
+        "validityTier",
+        "basis",
+        "sourceGrades"
+      ],
+      "properties": {
+        "statement": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "string",
+          "enum": [
+            "gap",
+            "considered",
+            "plausible",
+            "likely",
+            "assessed"
+          ]
+        },
+        "validityTier": {
+          "type": "string",
+          "enum": [
+            "low",
+            "moderate",
+            "high"
+          ]
+        },
+        "basis": {
+          "type": "string"
+        },
+        "addressesInclusion": {
+          "type": "string"
+        },
+        "syntheticBasis": {
+          "type": "boolean"
+        },
+        "sourceGrades": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "chunkId",
+              "reliability",
+              "credibility"
+            ],
+            "properties": {
+              "chunkId": {
+                "type": "string"
+              },
+              "reliability": {
+                "type": "string"
+              },
+              "credibility": {
+                "type": "number"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "response": {
+    "text": "{\n  \"statement\": \"Where bonded joint surface preparation is performed by a supplier and the process records are not contractually deliverable, the programme cannot verify interfacial durability by any downstream means. The absent record is itself the finding.\",\n  \"confidence\": \"assessed\",\n  \"validityTier\": \"high\",\n  \"basis\": \"synthetic field passages on surface preparation and supplier-held process records\",\n  \"addressesInclusion\": \"surface_preparation\",\n  \"syntheticBasis\": false,\n  \"sourceGrades\": [\n    {\n      \"chunkId\": \"synthetic-polymers-3\",\n      \"reliability\": \"F\",\n      \"credibility\": 6\n    },\n    {\n      \"chunkId\": \"synthetic-polymers-1\",\n      \"reliability\": \"F\",\n      \"credibility\": 6\n    }\n  ]\n}",
+    "stopReason": "end_turn",
+    "model": "claude-opus-5",
+    "usage": {
+      "inputTokens": 819,
+      "outputTokens": 221
+    }
+  }
+}

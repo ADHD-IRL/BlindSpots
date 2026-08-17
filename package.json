@@ -14,7 +14,8 @@
     "test:db": "vitest run --project store --project fields",
     "migrate": "node --experimental-strip-types packages/store/src/bin/migrate.ts",
     "seed:registry": "node --experimental-strip-types packages/cli/src/bin/mae.ts seed:registry",
-    "cli": "node --experimental-strip-types packages/cli/src/bin/mae.ts"
+    "cli": "node --experimental-strip-types packages/cli/src/bin/mae.ts",
+    "ui": "node --experimental-strip-types packages/ui/src/bin/serve.ts"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",
