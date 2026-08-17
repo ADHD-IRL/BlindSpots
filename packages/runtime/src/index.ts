@@ -11,3 +11,4 @@ export * from './transport/recording.ts';
 export * from './persona/brief.ts';
 export * from './persona/parse.ts';
 export * from './persona/run.ts';
+export * from './persona/persist.ts';
