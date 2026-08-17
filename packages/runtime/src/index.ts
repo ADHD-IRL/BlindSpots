@@ -8,3 +8,5 @@ export * from './transport/recording.ts';
 // opens a network connection to a model, and importing the package should not pull it in:
 // `import { RecordedTransport } from '@mae/runtime'` is the offline path, and it stays
 // offline. Import the live transport explicitly, from '@mae/runtime/transport/anthropic.ts'.
+export * from './persona/brief.ts';
+export * from './persona/parse.ts';
