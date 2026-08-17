@@ -6,7 +6,8 @@ import {
   personaSystemPrompt,
   personaUserPrompt,
 } from '../src/persona/brief.ts';
-import { FindingParseError, parseFinding } from '../src/persona/parse.ts';
+import type { FindingParseError } from '../src/persona/parse.ts';
+import { parseFinding } from '../src/persona/parse.ts';
 
 const scenario: Scenario = {
   id: 's',

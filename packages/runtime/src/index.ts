@@ -10,3 +10,4 @@ export * from './transport/recording.ts';
 // offline. Import the live transport explicitly, from '@mae/runtime/transport/anthropic.ts'.
 export * from './persona/brief.ts';
 export * from './persona/parse.ts';
+export * from './persona/run.ts';
