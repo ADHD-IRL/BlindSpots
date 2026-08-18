@@ -76,6 +76,9 @@ importers:
       '@mae/core':
         specifier: workspace:*
         version: link:../core
+      '@mae/store':
+        specifier: workspace:*
+        version: link:../store
 
   packages/store:
     dependencies:

@@ -11,7 +11,7 @@
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "test:db": "vitest run --project store --project fields",
+    "test:db": "vitest run --project store --project fields --project runtime",
     "migrate": "node --experimental-strip-types packages/store/src/bin/migrate.ts",
     "seed:registry": "node --experimental-strip-types packages/cli/src/bin/mae.ts seed:registry",
     "cli": "node --experimental-strip-types packages/cli/src/bin/mae.ts",

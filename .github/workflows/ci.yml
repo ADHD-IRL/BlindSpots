@@ -58,4 +58,5 @@ jobs:
       - run: pnpm migrate
       - name: Migrations are idempotent
         run: pnpm migrate
-      - run: pnpm test:db
+      - name: Store, fields, and the runtime's database-backed tests
+        run: pnpm test:db

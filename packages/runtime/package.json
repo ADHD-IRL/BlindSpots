@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.116.0",
-    "@mae/core": "workspace:*"
+    "@mae/core": "workspace:*",
+    "@mae/store": "workspace:*"
   }
 }
